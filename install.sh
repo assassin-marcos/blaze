@@ -236,7 +236,7 @@ run_install() {
 }
 
 # ---------------------------------------------------------------------------
-# Optional: uvloop (skip automatically on Windows)
+# uvloop — auto-install on Linux/macOS, skip on Windows
 # ---------------------------------------------------------------------------
 offer_uvloop() {
     echo ""
@@ -246,17 +246,10 @@ offer_uvloop() {
         return 0
     fi
 
-    local uv_choice
-    prompt_default "Install uvloop for faster async I/O? (y/n)" "y" uv_choice
-
-    if [[ "$uv_choice" =~ ^[Yy] ]]; then
-        info "Installing uvloop..."
-        "$PYTHON" -m pip install "blaze-scanner[fast]" --quiet --break-system-packages 2>/dev/null || \
-        "$PYTHON" -m pip install uvloop --quiet --break-system-packages 2>/dev/null || true
-        ok "uvloop installed"
-    else
-        info "Skipping uvloop."
-    fi
+    info "Installing uvloop for faster async I/O..."
+    "$PYTHON" -m pip install "blaze-scanner[fast]" --quiet --break-system-packages 2>/dev/null || \
+    "$PYTHON" -m pip install uvloop --quiet --break-system-packages 2>/dev/null || true
+    ok "uvloop installed"
 }
 
 # ---------------------------------------------------------------------------
