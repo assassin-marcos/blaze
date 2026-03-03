@@ -139,8 +139,14 @@ class SmartExtensions:
         with backup/archive extensions and filename permutations.
 
         Only probes for files that returned 200 or 403 (exists but maybe protected).
+        Skips redirects (301/302) to prevent infinite stacking on reflective servers.
         """
-        if status_code not in (200, 201, 204, 301, 302, 403):
+        if status_code not in (200, 201, 204, 403):
+            return []
+
+        # Don't probe paths that already have backup extensions (prevent stacking)
+        filename = found_path.rstrip("/").rsplit("/", 1)[-1]
+        if filename.count(".") > 2:
             return []
 
         probes = []
@@ -258,12 +264,34 @@ class SmartExtensions:
 
     def should_probe_extensions(self, path: str, status_code: int) -> bool:
         """Check if a found path warrants extension probing."""
-        if status_code not in (200, 201, 204, 301, 302, 403):
+        # Only probe actual file responses — skip redirects (302 servers
+        # that reflect any path would cause infinite probe stacking)
+        if status_code not in (200, 201, 204, 403):
             return False
+
+        filename = path.rstrip("/").rsplit("/", 1)[-1]
+
+        # Don't probe if path already looks like a backup probe result
+        # (ends with .bak, .old, .orig, .save, etc.) to prevent stacking
+        lower = filename.lower()
+        backup_suffixes = (
+            ".bak", ".old", ".orig", ".save", ".sav", ".backup",
+            ".copy", ".tmp", ".temp", ".swp", ".swo", ".mine",
+            ".dist", ".default", ".sample", ".example",
+            ".zip", ".tar.gz", ".tgz", ".gz", ".bz2", ".rar", ".7z",
+        )
+        for suffix in backup_suffixes:
+            if lower.endswith(suffix):
+                return False
+
+        # Don't probe paths with too many extensions (prevent stacking)
+        if filename.count(".") > 2:
+            return False
+
         for pattern, _ in SUSPICIOUS_FILE_PATTERNS:
             if re.search(pattern, path):
                 return True
         # Also probe if it looks like a file (has extension)
-        if "." in path.split("/")[-1]:
+        if "." in filename:
             return True
         return False
