@@ -781,6 +781,104 @@ class BlazeEngine:
         """Check if a status code is a wildcard (returned for random non-existent paths)."""
         return self._wildcard_statuses.get(status_code, 0) >= 3
 
+    # ════════════════════════ Interactive Wordlist Selection ════════════════════════
+
+    async def _prompt_wordlist_selection(self) -> List[str]:
+        """When no technology is detected, show available wordlists and let user pick."""
+        available = self.wordlist_manager.get_available_wordlists()
+        if not available:
+            return []
+
+        c = Colors
+        print(f"\n  {c.BOLD}No technology detected.{c.RESET} Select wordlists to scan with:")
+        print(f"  {c.DIM}(common.txt, backup.txt, sensitive.txt are always included){c.RESET}\n")
+
+        # Show numbered list with entry counts
+        wl_dir = self.wordlist_manager.wordlist_dir
+        for i, wl in enumerate(available, 1):
+            path = os.path.join(wl_dir, wl)
+            try:
+                with open(path) as f:
+                    count = sum(1 for line in f if line.strip() and not line.startswith("#"))
+            except IOError:
+                count = 0
+            print(f"    {c.CYAN}{i:2d}.{c.RESET} {wl:<28s} {c.DIM}({count:,} entries){c.RESET}")
+
+        print(f"\n  {c.DIM}Enter numbers separated by commas (e.g. 1,5,12) or 'all' or press Enter to skip:{c.RESET}")
+
+        try:
+            choice = input(f"  {c.CYAN}>{c.RESET} ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return []
+
+        if not choice:
+            return []
+
+        selected = []
+        if choice.lower() == "all":
+            selected = list(available)
+        else:
+            for part in choice.split(","):
+                part = part.strip()
+                if part.isdigit():
+                    idx = int(part) - 1
+                    if 0 <= idx < len(available):
+                        selected.append(available[idx])
+
+        if selected:
+            print(f"\n  {c.GREEN}[ok]{c.RESET} Selected: {', '.join(selected)}")
+            # Add extensions from selected wordlists (map wordlist name to tech)
+            self._add_extensions_from_wordlists(selected)
+        else:
+            print(f"  {c.DIM}No wordlists selected, using defaults.{c.RESET}")
+
+        return selected
+
+    def _add_extensions_from_wordlists(self, wordlist_names: List[str]):
+        """Infer and add relevant extensions based on selected wordlist names."""
+        c = Colors
+        wl_ext_map = {
+            "php.txt": [".php", ".phtml"],
+            "asp.txt": [".aspx", ".asp", ".ashx"],
+            "jsp.txt": [".jsp", ".jsf", ".do", ".action"],
+            "spring.txt": [".jsp", ".do", ".action", ".html"],
+            "wordpress.txt": [".php"],
+            "joomla.txt": [".php"],
+            "drupal.txt": [".php", ".module", ".inc"],
+            "laravel.txt": [".php", ".blade.php"],
+            "python_web.txt": [".py", ".html"],
+            "rails.txt": [".html", ".erb", ".rb"],
+            "nodejs.txt": [".js", ".json", ".html"],
+            "iis.txt": [".aspx", ".asp", ".ashx", ".asmx"],
+            "tomcat.txt": [".jsp", ".jsf", ".do"],
+            "magento.txt": [".php", ".phtml"],
+            "typo3.txt": [".php", ".html"],
+            "umbraco.txt": [".aspx", ".ashx", ".cshtml"],
+            "moodle.txt": [".php"],
+            "sharepoint.txt": [".aspx", ".ashx", ".asmx"],
+            "aem.txt": [".html", ".json", ".xml"],
+            "confluence.txt": [".action", ".do"],
+            "jenkins.txt": [".html", ".xml"],
+            "gitlab.txt": [".html", ".json"],
+            "swagger.txt": [".json", ".yaml", ".html"],
+            "graphql.txt": [".json"],
+            "elasticsearch.txt": [".json"],
+        }
+        added = set()
+        for wl_name in wordlist_names:
+            for ext in wl_ext_map.get(wl_name, []):
+                if ext not in self.extensions:
+                    self.extensions.append(ext)
+                    added.add(ext)
+        # Always add sensitive extensions
+        for ext in [".bak", ".old", ".txt", ".conf", ".log", ".sql", ".xml", ".json"]:
+            if ext not in self.extensions:
+                self.extensions.append(ext)
+                added.add(ext)
+        if added:
+            print(f"  {c.GREEN}[ok]{c.RESET} Auto-added extensions: {', '.join(sorted(added))}")
+
     # ════════════════════════ PHASE: Smart Status Filtering ════════════════════════
 
     def _should_show_result(self, result: ScanResult, body: str) -> bool:
@@ -1357,10 +1455,16 @@ class BlazeEngine:
                     f"Subdomain intelligence: adding {', '.join(subdomain_lists)}"
                 )
 
+            # Phase 4c: If no tech detected, ask user to pick wordlists
+            user_extra_lists = []
+            if not tech_result.technologies and self.user_prompt_callback:
+                user_extra_lists = await self._prompt_wordlist_selection()
+
             # Phase 5: Wordlist assembly
             self.reporter.phase("Wordlist Assembly")
+            all_extra = (subdomain_lists or []) + user_extra_lists
             wordlist = self.wordlist_manager.build_wordlist(
-                tech_result, extra_wordlists=subdomain_lists
+                tech_result, extra_wordlists=all_extra if all_extra else None
             )
             self.reporter.info(f"Total words to scan: {len(wordlist):,}")
 

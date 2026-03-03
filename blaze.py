@@ -414,7 +414,7 @@ def run_self_update():
         try:
             result = subprocess.run(
                 [sys.executable, "-m", "pip", "install", base_dir,
-                 "--quiet", "--break-system-packages"],
+                 "--force-reinstall", "--quiet", "--break-system-packages"],
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -432,7 +432,7 @@ def run_self_update():
         try:
             result = subprocess.run(
                 [sys.executable, "-m", "pip", "install",
-                 f"git+{REPO_URL}", "--upgrade",
+                 f"git+{REPO_URL}", "--upgrade", "--force-reinstall",
                  "--quiet", "--break-system-packages"],
                 capture_output=True,
                 text=True,
