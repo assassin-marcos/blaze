@@ -178,21 +178,23 @@ class WordlistManager:
             if path:
                 add_words(self._load_wordlist(path))
 
-        # 5. Common wordlist (baseline - always included)
-        common_path = self._resolve_wordlist_path("common.txt")
-        if common_path:
-            add_words(self._load_wordlist(common_path))
-
-        # 6. Backup/sensitive files wordlist
-        backup_path = self._resolve_wordlist_path("backup.txt")
-        if backup_path:
-            add_words(self._load_wordlist(backup_path))
-
-        # 7. Sensitive files and paths wordlists
-        for sensitive_wl in ["sensitive.txt", "sensitive_files.txt"]:
-            sensitive_path = self._resolve_wordlist_path(sensitive_wl)
-            if sensitive_path:
-                add_words(self._load_wordlist(sensitive_path))
+        # 5. Always-included wordlists (run regardless of tech detection)
+        always_included = [
+            "common.txt",
+            "backup.txt",
+            "sensitive.txt",
+            "sensitive_files.txt",
+            "api.txt",
+            "swagger.txt",
+            "graphql.txt",
+            "devops.txt",
+            "cloud_devops.txt",
+            "spring.txt",
+        ]
+        for wl_name in always_included:
+            wl_path = self._resolve_wordlist_path(wl_name)
+            if wl_path:
+                add_words(self._load_wordlist(wl_path))
 
         return final_words
 
