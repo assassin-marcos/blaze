@@ -197,8 +197,8 @@ class RealtimeAdaptiveFilter:
     Learns wildcard patterns IN REAL-TIME during scanning.
 
     Tracks (status_code, content_length) and (status_code, line_count) pairs.
-    When a specific combo is seen more than THRESHOLD times, it's flagged as
-    a wildcard pattern and all future matches are auto-filtered.
+    When a specific combo is seen more than THRESHOLD times, it asks the user
+    whether to filter or keep the pattern — never silently discards results.
 
     This catches:
     - Wildcard 403 from internal firewalls (all same size)
@@ -224,15 +224,31 @@ class RealtimeAdaptiveFilter:
         self._blocked_line_patterns: Set[tuple] = set()
         self._blocked_hash_patterns: Set[tuple] = set()
 
+        # Patterns user chose to KEEP (don't filter)
+        self._user_approved: Set[str] = set()
+
+        # Patterns pending user confirmation — key → list of example paths
+        self._pending_patterns: Dict[str, List[str]] = {}
+
+        # Example paths per pattern (collected before threshold)
+        self._example_paths: Dict[str, List[str]] = {}
+
         # Track what we've already notified about
         self._notified: Set[str] = set()
 
         # Total filtered by this module
         self.total_filtered = 0
 
+    def _pattern_key(self, status: int, content_length: int,
+                     redirect_url: str = "") -> str:
+        """Human-readable key for a pattern."""
+        redir = f" → {redirect_url}" if redirect_url else ""
+        return f"HTTP {status} / {content_length}B{redir}"
+
     def track_and_check(self, status: int, content_length: int,
                         line_count: int, content_hash: str,
-                        redirect_url: str = "") -> bool:
+                        redirect_url: str = "",
+                        path: str = "") -> bool:
         """
         Track a response and check if it matches a known wildcard pattern.
         Returns True if this response should be FILTERED (is wildcard junk).
@@ -240,12 +256,15 @@ class RealtimeAdaptiveFilter:
         For redirects (301/302), the redirect_url is included in the key so
         that different redirect targets are NOT grouped together.
         """
-        # For redirects, include the redirect URL in the key so that
-        # paths redirecting to different locations are treated separately
         redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
         size_key = (status, content_length, redir_tag)
         line_key = (status, line_count, redir_tag)
         hash_key = (status, content_hash)
+        pat_key = self._pattern_key(status, content_length, redir_tag)
+
+        # User approved = never filter
+        if pat_key in self._user_approved:
+            return False
 
         if size_key in self._blocked_size_patterns:
             self.total_filtered += 1
@@ -262,30 +281,67 @@ class RealtimeAdaptiveFilter:
         self._line_counter[line_key] = self._line_counter.get(line_key, 0) + 1
         self._hash_counter[hash_key] = self._hash_counter.get(hash_key, 0) + 1
 
+        # Collect example paths for this pattern
+        if path and pat_key not in self._example_paths:
+            self._example_paths[pat_key] = []
+        if path and len(self._example_paths.get(pat_key, [])) < 5:
+            self._example_paths[pat_key].append(path)
+
         # Check if any pattern just crossed the threshold
         newly_blocked = False
 
         # Content hash is the strongest signal (exact same body)
         if self._hash_counter[hash_key] >= self.size_threshold // 2:
             if hash_key not in self._blocked_hash_patterns:
-                self._blocked_hash_patterns.add(hash_key)
-                # Also block the size pattern for this status
-                self._blocked_size_patterns.add(size_key)
+                if pat_key not in self._pending_patterns:
+                    self._pending_patterns[pat_key] = self._example_paths.get(pat_key, [])
                 newly_blocked = True
 
         # Size-based detection
         if self._size_counter[size_key] >= self.size_threshold:
             if size_key not in self._blocked_size_patterns:
-                self._blocked_size_patterns.add(size_key)
+                if pat_key not in self._pending_patterns:
+                    self._pending_patterns[pat_key] = self._example_paths.get(pat_key, [])
                 newly_blocked = True
 
         # Line-count-based detection
         if self._line_counter[line_key] >= self.line_threshold:
             if line_key not in self._blocked_line_patterns:
-                self._blocked_line_patterns.add(line_key)
+                if pat_key not in self._pending_patterns:
+                    self._pending_patterns[pat_key] = self._example_paths.get(pat_key, [])
                 newly_blocked = True
 
-        return newly_blocked  # filter this one too since it triggered the block
+        return False  # Don't auto-filter — wait for user confirmation
+
+    def confirm_pattern(self, pat_key: str, should_filter: bool):
+        """User confirmed whether to filter or keep a pattern."""
+        if should_filter:
+            # Parse the pattern key to add to blocked sets
+            # pat_key format: "HTTP 302 / 128B" or "HTTP 302 / 128B → /target"
+            parts = pat_key.split(" / ")
+            status = int(parts[0].replace("HTTP ", ""))
+            size_part = parts[1] if len(parts) > 1 else "0B"
+            redir = ""
+            if " → " in size_part:
+                size_str, redir = size_part.split(" → ", 1)
+            else:
+                size_str = size_part
+            content_length = int(size_str.replace("B", ""))
+            size_key = (status, content_length, redir)
+            self._blocked_size_patterns.add(size_key)
+        else:
+            self._user_approved.add(pat_key)
+
+        # Remove from pending
+        self._pending_patterns.pop(pat_key, None)
+
+    def has_pending_patterns(self) -> bool:
+        """Check if there are patterns waiting for user confirmation."""
+        return len(self._pending_patterns) > 0
+
+    def get_pending_patterns(self) -> Dict[str, List[str]]:
+        """Get patterns pending user confirmation with their example paths."""
+        return dict(self._pending_patterns)
 
     def get_notification(self, status: int, content_length: int,
                          line_count: int) -> Optional[str]:
@@ -314,6 +370,9 @@ class RealtimeAdaptiveFilter:
                     redirect_url: str = "") -> bool:
         """Quick check if a response matches known wildcard patterns."""
         redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
+        pat_key = self._pattern_key(status, content_length, redir_tag)
+        if pat_key in self._user_approved:
+            return False
         return (
             (status, content_length, redir_tag) in self._blocked_size_patterns
             or (status, content_hash) in self._blocked_hash_patterns
@@ -889,6 +948,45 @@ class BlazeEngine:
         if added:
             print(f"  {c.GREEN}[ok]{c.RESET} Auto-added extensions: {', '.join(sorted(added))}")
 
+    # ════════════════════════ Adaptive Filter User Prompt ════════════════════════
+
+    async def _prompt_adaptive_filter(self):
+        """Ask user whether to filter detected repetitive patterns."""
+        pending = self.adaptive_filter.get_pending_patterns()
+        if not pending:
+            return
+
+        c = Colors
+        print(f"\n  {c.YELLOW}{c.BOLD}Repetitive pattern detected!{c.RESET}")
+        print(f"  {c.DIM}The following response patterns appear to be wildcard/junk:{c.RESET}\n")
+
+        for pat_key, examples in pending.items():
+            print(f"  {c.BOLD}{pat_key}{c.RESET}")
+            if examples:
+                for ex in examples[:5]:
+                    print(f"    {c.DIM}→ /{ex}{c.RESET}")
+            print()
+
+        print(f"  {c.BOLD}Filter these patterns?{c.RESET} {c.DIM}(skips matching responses){c.RESET}")
+        print(f"    {c.CYAN}y{c.RESET} = filter (skip them)    {c.CYAN}n{c.RESET} = keep (show all results)")
+        print(f"    {c.CYAN}Enter{c.RESET} = filter (default)\n")
+
+        try:
+            choice = input(f"  {c.CYAN}>{c.RESET} ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            choice = "y"
+
+        should_filter = choice != "n"
+        for pat_key in list(pending.keys()):
+            self.adaptive_filter.confirm_pattern(pat_key, should_filter)
+
+        if should_filter:
+            print(f"  {c.GREEN}[ok]{c.RESET} Filtering {len(pending)} pattern(s) — junk responses will be skipped")
+        else:
+            print(f"  {c.GREEN}[ok]{c.RESET} Keeping all results — no filtering applied")
+        print()
+
     # ════════════════════════ PHASE: Smart Status Filtering ════════════════════════
 
     def _should_show_result(self, result: ScanResult, body: str) -> bool:
@@ -1018,6 +1116,10 @@ class BlazeEngine:
                 if msg:
                     self.reporter.adaptive(msg)
 
+            # Check for pending adaptive filter patterns — ask user
+            if self.adaptive_filter.has_pending_patterns():
+                await self._prompt_adaptive_filter()
+
             # Auto-save progress
             self._save_counter += len(chunk)
             if self.config.get("resume", False) and self._save_counter >= 1000:
@@ -1077,24 +1179,23 @@ class BlazeEngine:
                           and resp.headers.get("Content-Type", "").startswith("text/html")):
                         result.is_directory = True
 
+                    # ── Collect directories for recursion BEFORE filtering ──
+                    # Even if the response gets filtered from display, we still
+                    # want to recurse into discovered directories
+                    if result.is_directory and (self.recursive or self.smart_mode):
+                        dir_path = result.path.rstrip("/") + "/"
+                        if dir_path not in self.found_dirs:
+                            self.found_dirs.append(dir_path)
+
                     # ═══ REAL-TIME ADAPTIVE FILTER (catches wildcard 403, etc.) ═══
-                    # This runs BEFORE everything else — it learns patterns live
+                    # Tracks patterns — when threshold hit, asks user to confirm
                     redir_url = result.redirect_url or ""
                     is_junk = self.adaptive_filter.track_and_check(
                         resp.status, content_length, line_count, content_hash,
-                        redirect_url=redir_url
+                        redirect_url=redir_url, path=path
                     )
                     if is_junk:
                         self.stats.filtered += 1
-                        note = self.adaptive_filter.get_notification(
-                            resp.status, content_length, line_count
-                        )
-                        if note:
-                            self.reporter.adaptive(
-                                f"Auto-filter: HTTP {resp.status} × "
-                                f"{self._fmt_size(content_length)} "
-                                f"(wildcard pattern detected)"
-                            )
                         self.rate_limiter.on_success()
                         self.thread_manager.record(elapsed)
                         return
@@ -1242,12 +1343,10 @@ class BlazeEngine:
 
     async def _on_result_found(self, result: ScanResult, body: str, headers: dict):
         """Called after every valid result. Triggers smart reactions."""
+        # Note: directory collection moved to before adaptive filter in _scan_path
+        # so directories are captured even if the response is filtered from display.
 
-        # 1. Collect directories for smart recursion (always in smart mode)
-        if result.is_directory and (self.recursive or self.smart_mode):
-            self.found_dirs.append(result.path.rstrip("/") + "/")
-
-        # 2. Real-time tech detection from response content
+        # 1. Real-time tech detection from response content
         self._realtime_tech_detect(result, body, headers)
 
         # 3. Queue smart extension probes for suspicious files
