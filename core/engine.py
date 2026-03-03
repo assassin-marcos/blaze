@@ -530,6 +530,7 @@ class BlazeEngine:
         self._stop_event = asyncio.Event()
         self._pause_event = asyncio.Event()
         self._pause_event.set()
+        self._running_tasks: List[asyncio.Task] = []
 
         # Crawled paths from HTML responses
         self._crawled_paths: Set[str] = set()
@@ -990,7 +991,14 @@ class BlazeEngine:
             if self._stop_event.is_set():
                 break
             chunk = tasks[i : i + chunk_size]
-            await asyncio.gather(*chunk, return_exceptions=True)
+            # Wrap coroutines as tasks so they can be cancelled on Ctrl+C
+            self._running_tasks = [asyncio.ensure_future(c) for c in chunk]
+            try:
+                await asyncio.gather(*self._running_tasks, return_exceptions=True)
+            except asyncio.CancelledError:
+                break
+            finally:
+                self._running_tasks.clear()
             completed += len(chunk)
 
             # Calculate live metrics
@@ -1553,6 +1561,11 @@ class BlazeEngine:
 
     def stop(self):
         self._stop_event.set()
+        # Cancel all in-flight tasks immediately
+        for task in self._running_tasks:
+            if not task.done():
+                task.cancel()
+        self._running_tasks.clear()
 
     def pause(self):
         self._pause_event.clear()
