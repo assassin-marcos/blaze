@@ -1,5 +1,5 @@
 """
-Blaze Core Engine v2.2 - Full-featured async directory scanner.
+Blaze Core Engine v2.3 - Full-featured async directory scanner.
 
 Integrates: smart status filtering, response diffing, WAF detection,
 tech fingerprinting, smart recursion with context-aware multi-wordlist,
@@ -1082,38 +1082,39 @@ class BlazeEngine:
                         self.thread_manager.record(elapsed)
                         return
 
-                    if self.adaptive_filter.is_filtered(
-                        resp.status, content_length, line_count, content_hash,
-                        redirect_url=redir_url
-                    ):
-                        self.stats.filtered += 1
-                        self.rate_limiter.on_success()
-                        self.thread_manager.record(elapsed)
-                        return
+                    if not self.force:
+                        if self.adaptive_filter.is_filtered(
+                            resp.status, content_length, line_count, content_hash,
+                            redirect_url=redir_url
+                        ):
+                            self.stats.filtered += 1
+                            self.rate_limiter.on_success()
+                            self.thread_manager.record(elapsed)
+                            return
 
-                    if not self._should_show_result(result, body):
-                        self.stats.filtered += 1
-                        self.response_differ.track_response(body)
-                        self.rate_limiter.on_success()
-                        self.thread_manager.record(elapsed)
-                        return
+                        if not self._should_show_result(result, body):
+                            self.stats.filtered += 1
+                            self.response_differ.track_response(body)
+                            self.rate_limiter.on_success()
+                            self.thread_manager.record(elapsed)
+                            return
 
-                    # Additional response filter (size/words/lines)
-                    if not self.response_filter.should_show(result):
-                        self.stats.filtered += 1
-                        return
+                        # Additional response filter (size/words/lines)
+                        if not self.response_filter.should_show(result):
+                            self.stats.filtered += 1
+                            return
 
-                    # Live WAF block check
-                    if self.waf_detector.is_waf_block(resp.status, headers, body):
-                        self.stats.waf_blocks += 1
-                        if self.stats.waf_blocks > 10:
-                            self.reporter.warning(
-                                "Multiple WAF blocks detected! Consider reducing threads."
-                            )
-                        if self.stats.waf_blocks > 50:
-                            self._stop_event.set()
-                            self.reporter.error("Too many WAF blocks. Stopping scan.")
-                        return
+                        # Live WAF block check
+                        if self.waf_detector.is_waf_block(resp.status, headers, body):
+                            self.stats.waf_blocks += 1
+                            if self.stats.waf_blocks > 10:
+                                self.reporter.warning(
+                                    "Multiple WAF blocks detected! Consider reducing threads."
+                                )
+                            if self.stats.waf_blocks > 50:
+                                self._stop_event.set()
+                                self.reporter.error("Too many WAF blocks. Stopping scan.")
+                            return
 
                     # ═══ Rate limit fingerprinting (runs on every response) ═══
                     rl_info = self.rate_limiter.fingerprint_rate_limit(headers)

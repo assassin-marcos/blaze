@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blaze-scanner"
-version = "2.2.0"
+version = "2.3.0"
 description = "Smart Directory Bruteforce Engine with WAF detection, tech fingerprinting, and adaptive filtering"
 readme = "README.md"
 license = {text = "MIT"}
@@ -44,4 +44,5 @@ packages = ["core", "tools"]
 py-modules = ["blaze"]
 
 [tool.setuptools.package-data]
-"*" = ["wordlists/*.txt", "config.json", "signatures/*.json"]
+core = ["wordlists/*.txt"]
+"*" = ["config.json", "signatures/*.json"]

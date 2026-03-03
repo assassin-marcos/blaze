@@ -67,11 +67,10 @@ WAF_SIGNATURES = {
         },
         "cookies": [r"akamai_", r"ak_bmsc", r"bm_sv", r"_abck"],
         "body": [
-            r"Access Denied",
             r"Reference\s*#\d+\.\w+\.\d+",
             r"AkamaiGHost",
             r"akamaiedge\.net",
-            r"Your access to .* has been blocked",
+            r"Access Denied.*akamai",
         ],
         "status_codes": [403],
     },

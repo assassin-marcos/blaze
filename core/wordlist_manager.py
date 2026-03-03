@@ -44,7 +44,12 @@ class WordlistManager:
     def __init__(self, config: dict):
         self.config = config
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.wordlist_dir = os.path.join(self.base_dir, "wordlists")
+        # Primary: wordlists inside core package (works with pip install)
+        core_dir = os.path.dirname(os.path.abspath(__file__))
+        pkg_wordlists = os.path.join(core_dir, "wordlists")
+        # Fallback: wordlists at repo root level (works from source)
+        repo_wordlists = os.path.join(self.base_dir, "wordlists")
+        self.wordlist_dir = pkg_wordlists if os.path.isdir(pkg_wordlists) else repo_wordlists
         self.user_wordlists = config.get("wordlists", [])
         self.always_run_lists = config.get("always_lists", [])
         self.smart_mode = config.get("smart", True)

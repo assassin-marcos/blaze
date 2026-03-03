@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Blaze v2.2 - Smart Directory Bruteforce Engine
+Blaze v2.3 - Smart Directory Bruteforce Engine
 
 Features:
   - Async I/O engine (aiohttp) for maximum throughput
@@ -42,7 +42,7 @@ from core.wordlist_manager import WordlistManager
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="blaze",
-        description="Blaze v2.2 - Smart Directory Bruteforce Engine",
+        description="Blaze v2.3 - Smart Directory Bruteforce Engine",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
