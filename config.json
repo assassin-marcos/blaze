@@ -1,0 +1,10 @@
+{
+  "always_run_wordlists": [],
+  "default_threads": 50,
+  "default_timeout": 10,
+  "default_extensions": [],
+  "default_exclude_status": [404],
+  "auto_smart_mode": true,
+  "max_recursion_depth": 3,
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
