@@ -1,5 +1,5 @@
 """
-Blaze Core Engine v2.1 - Full-featured async directory scanner.
+Blaze Core Engine v2.2 - Full-featured async directory scanner.
 
 Integrates: smart status filtering, response diffing, WAF detection,
 tech fingerprinting, smart recursion with context-aware multi-wordlist,

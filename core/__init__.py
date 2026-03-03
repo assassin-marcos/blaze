@@ -1,3 +1,3 @@
 """Blaze - Smart Directory Bruteforce Engine"""
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"

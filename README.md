@@ -1,4 +1,4 @@
-# Blaze v2.1 — Smart Directory Bruteforce Engine
+# Blaze v2.2 — Smart Directory Bruteforce Engine
 
 ```
     ██████╗ ██╗      █████╗ ███████╗███████╗

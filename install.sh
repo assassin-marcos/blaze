@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# Blaze Installer v2.1 — Unified Cross-Platform (Linux / macOS / Windows)
+# Blaze Installer v2.2 — Unified Cross-Platform (Linux / macOS / Windows)
 # Supports: native Linux, macOS, Git Bash, MSYS2, MinGW, WSL
 # ============================================================================
 
@@ -99,7 +99,7 @@ show_banner() {
     banner_line "  ██████╔╝███████╗██║  ██║███████╗███████╗"
     banner_line "  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝"
     echo -e "${RESET}"
-    echo -e "    ${BOLD}Installer v2.1${RESET}  ${DIM}— cross-platform${RESET}"
+    echo -e "    ${BOLD}Installer v2.2${RESET}  ${DIM}— cross-platform${RESET}"
     echo ""
 }
 

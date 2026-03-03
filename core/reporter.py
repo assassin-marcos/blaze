@@ -1,5 +1,5 @@
 """
-Blaze Reporter v2.0 - Clean, visually appealing terminal output
+Blaze Reporter v2.2 - Clean, visually appealing terminal output
 with live adaptive progress bar and structured result display.
 """
 
@@ -98,7 +98,7 @@ BANNER = r"""
     ██╔══██╗██║     ██╔══██║ ███╔╝  ██╔══╝
     ██████╔╝███████╗██║  ██║███████╗███████╗
     ╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝{reset}
-{dim}    Smart Directory Bruteforce Engine v2.0{reset}
+{dim}    Smart Directory Bruteforce Engine v2.2{reset}
 """
 
 
@@ -510,7 +510,7 @@ class Reporter:
 
     def _export_txt(self, results: List[ScanResult], path: str):
         with open(path, "w") as f:
-            f.write(f"# Blaze v2.0 Scan Results\n")
+            f.write(f"# Blaze v2.2 Scan Results\n")
             f.write(f"# Target: {self.config.get('url', '')}\n")
             f.write(f"# Date: {datetime.now().isoformat()}\n")
             f.write(f"# {'─' * 50}\n\n")
