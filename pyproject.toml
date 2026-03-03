@@ -41,6 +41,7 @@ blaze = "blaze:cli_entry"
 
 [tool.setuptools]
 packages = ["core", "tools"]
+py-modules = ["blaze"]
 
 [tool.setuptools.package-data]
 "*" = ["wordlists/*.txt", "config.json", "signatures/*.json"]

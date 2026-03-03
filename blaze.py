@@ -42,7 +42,7 @@ from core.wordlist_manager import WordlistManager
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="blaze",
-        description="Blaze v2.0 - Smart Directory Bruteforce Engine",
+        description="Blaze v2.1 - Smart Directory Bruteforce Engine",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -172,6 +172,11 @@ Examples:
     output.add_argument("-q", "--quiet", action="store_true")
     output.add_argument("-v", "--verbose", action="store_true")
     output.add_argument("--no-color", action="store_true")
+
+    # ── Update ──
+    updater = parser.add_argument_group("Update")
+    updater.add_argument("--update", action="store_true",
+                         help="Update Blaze to the latest version from git")
 
     return parser.parse_args()
 
@@ -369,6 +374,91 @@ def run_merge_dicts(source_dir=""):
     merge_wordlists(source_dir)
 
 
+def run_self_update():
+    """Update Blaze from the git repository."""
+    import subprocess
+    c = Colors
+
+    REPO_URL = "https://github.com/assassin-marcos/blaze.git"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    print(f"\n {c.BOLD}{c.BLUE}Blaze Self-Update{c.RESET}")
+    print(f" {c.DIM}{'─' * 50}{c.RESET}")
+
+    # Check if we're in a git repo (installed from git clone)
+    git_dir = os.path.join(base_dir, ".git")
+    if os.path.isdir(git_dir):
+        print(f" {c.CYAN}>{c.RESET} Updating via git pull...")
+        try:
+            result = subprocess.run(
+                ["git", "pull", "--rebase"],
+                cwd=base_dir,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode == 0:
+                print(f" {c.GREEN}[ok]{c.RESET} {result.stdout.strip()}")
+            else:
+                print(f" {c.RED}[ERR]{c.RESET} git pull failed: {result.stderr.strip()}")
+                return False
+        except FileNotFoundError:
+            print(f" {c.RED}[ERR]{c.RESET} git not found. Install git first.")
+            return False
+        except subprocess.TimeoutExpired:
+            print(f" {c.RED}[ERR]{c.RESET} git pull timed out.")
+            return False
+
+        # Re-install after pull
+        print(f" {c.CYAN}>{c.RESET} Re-installing package...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", base_dir,
+                 "--quiet", "--break-system-packages"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                print(f" {c.GREEN}[ok]{c.RESET} Package reinstalled successfully.")
+            else:
+                print(f" {c.YELLOW}[!!]{c.RESET} pip install warning: {result.stderr.strip()}")
+        except subprocess.TimeoutExpired:
+            print(f" {c.RED}[ERR]{c.RESET} pip install timed out.")
+            return False
+    else:
+        # Not a git clone — install directly from repo URL via pip
+        print(f" {c.CYAN}>{c.RESET} Installing latest from {REPO_URL}...")
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install",
+                 f"git+{REPO_URL}", "--upgrade",
+                 "--quiet", "--break-system-packages"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                print(f" {c.GREEN}[ok]{c.RESET} Updated from git successfully.")
+            else:
+                print(f" {c.RED}[ERR]{c.RESET} pip install failed: {result.stderr.strip()}")
+                return False
+        except subprocess.TimeoutExpired:
+            print(f" {c.RED}[ERR]{c.RESET} Install timed out.")
+            return False
+
+    # Show new version
+    try:
+        from importlib import reload
+        import core as _core
+        reload(_core)
+        print(f"\n {c.GREEN}{c.BOLD}Updated to Blaze v{_core.__version__}{c.RESET}\n")
+    except Exception:
+        print(f"\n {c.GREEN}{c.BOLD}Update complete!{c.RESET}\n")
+
+    return True
+
+
 async def run_vhost_mode(config):
     """Run VHOST discovery mode."""
     from core.vhost_scanner import VHostScanner
@@ -453,6 +543,9 @@ async def main():
     args = parse_args()
 
     # Utility commands
+    if args.update:
+        run_self_update()
+        return
     if args.setup_lists:
         setup_always_run_lists()
         return

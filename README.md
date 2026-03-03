@@ -106,6 +106,14 @@ cd blaze
 pip3 install -e ".[all]" --break-system-packages
 ```
 
+### Update
+
+```bash
+blaze --update
+```
+
+Updates to the latest version directly from git. Works whether installed from `git clone` (pulls + reinstalls) or from pip (installs latest from repo).
+
 ---
 
 ## Usage
@@ -261,6 +269,9 @@ Output:
   -q, --quiet            Quiet mode
   -v, --verbose          Verbose output
   --no-color             Disable colored output
+
+Update:
+  --update               Update Blaze to latest version from git
 ```
 
 ---

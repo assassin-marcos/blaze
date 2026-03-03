@@ -1,4 +1,3 @@
 """Allow running as: python -m blaze"""
-import asyncio
-from blaze import main
-asyncio.run(main())
+from blaze import cli_entry
+cli_entry()
