@@ -665,9 +665,36 @@ class BlazeEngine:
         tech_probes = self.tech_detector.get_probe_paths()
         tasks = [self._probe_tech_path(p, t) for p, t in tech_probes]
         probe_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Count how many probes returned each status to detect blanket responses
+        status_counts = {}
+        valid_probes = []
         for pr in probe_results:
-            if isinstance(pr, tuple) and pr[0]:
-                result.add_technology(pr[1], pr[2])
+            if isinstance(pr, tuple) and len(pr) >= 4:
+                if pr[0]:  # detected
+                    status = pr[3]
+                    status_counts[status] = status_counts.get(status, 0) + 1
+                    valid_probes.append(pr)
+
+        # If >60% of successful probes return 403, it's likely a WAF blanket block
+        # — discard all 403-only detections
+        total_hits = len(valid_probes)
+        blanket_403 = (
+            total_hits > 5
+            and status_counts.get(403, 0) / total_hits > 0.6
+        )
+
+        for pr in valid_probes:
+            status = pr[3]
+            if blanket_403 and status == 403:
+                continue  # Skip blanket 403 false positives
+            result.add_technology(pr[1], pr[2])
+
+        if blanket_403:
+            self.reporter.warning(
+                "Most probe paths returned 403 (likely WAF blanket block). "
+                "Probe-based tech detection skipped — using header/body signatures only."
+            )
 
         if result.technologies:
             self.reporter.tech_detected(result)
@@ -676,17 +703,23 @@ class BlazeEngine:
             self.reporter.info("No specific technology detected")
         return result
 
-    async def _probe_tech_path(self, path: str, tech_name: str) -> Tuple[bool, str, float]:
+    async def _probe_tech_path(self, path: str, tech_name: str) -> Tuple[bool, str, float, int]:
         try:
             url = f"{self.target}/{path.lstrip('/')}"
             async with self.session.get(
                 url, allow_redirects=False, proxy=self.proxy
             ) as resp:
-                if resp.status in (200, 301, 302, 403):
-                    return (True, tech_name, 0.8)
+                if resp.status == 200:
+                    return (True, tech_name, 0.9, resp.status)
+                elif resp.status in (301, 302):
+                    return (True, tech_name, 0.7, resp.status)
+                elif resp.status == 403:
+                    # 403 could be a WAF blanket block — return low confidence,
+                    # will be filtered out later if most probes return 403
+                    return (True, tech_name, 0.5, resp.status)
         except Exception:
             pass
-        return (False, tech_name, 0.0)
+        return (False, tech_name, 0.0, 0)
 
     # ════════════════════ PHASE: Wildcard + Soft-404 Calibration ════════════════════
 
@@ -709,9 +742,9 @@ class BlazeEngine:
 
         # Response diffing calibration for smart soft-404
         await self.response_differ.calibrate(self.session, self.target, self.proxy)
-        if self.response_differ.baselines:
+        if self.response_differ.baseline_count:
             self.reporter.info(
-                f"Soft-404 detection calibrated ({len(self.response_differ.baselines)} baselines)"
+                f"Soft-404 detection calibrated ({self.response_differ.baseline_count} baselines)"
             )
 
         # Detect wildcard 401/403 (if random paths all return same status)
