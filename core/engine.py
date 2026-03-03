@@ -352,10 +352,11 @@ class RealtimeAdaptiveFilter:
         return dict(self._pending_patterns)
 
     def get_notification(self, status: int, content_length: int,
-                         line_count: int) -> Optional[str]:
+                         line_count: int, redirect_url: str = "") -> Optional[str]:
         """Get a notification message if a new pattern was just blocked."""
-        size_key = (status, content_length)
-        key_str = f"{status}:{content_length}"
+        redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
+        size_key = (status, content_length, redir_tag)
+        key_str = f"{status}:{content_length}:{redir_tag}"
         if size_key in self._blocked_size_patterns and key_str not in self._notified:
             self._notified.add(key_str)
             count = self._size_counter.get(size_key, 0)
@@ -363,8 +364,8 @@ class RealtimeAdaptiveFilter:
                 f"Auto-filtering: HTTP {status} with {content_length}B "
                 f"(seen {count}x — wildcard pattern detected)"
             )
-        line_key = (status, line_count)
-        lkey_str = f"{status}:L{line_count}"
+        line_key = (status, line_count, redir_tag)
+        lkey_str = f"{status}:L{line_count}:{redir_tag}"
         if line_key in self._blocked_line_patterns and lkey_str not in self._notified:
             self._notified.add(lkey_str)
             return (
@@ -396,8 +397,11 @@ class RealtimeAdaptiveFilter:
         """Summary of all blocked patterns for reporting."""
         patterns = []
         for pattern in sorted(self._blocked_size_patterns):
-            status, size = pattern[0], pattern[1]
-            patterns.append(f"HTTP {status} / {size}B")
+            status, size, redir = pattern[0], pattern[1], pattern[2] if len(pattern) > 2 else ""
+            entry = f"HTTP {status} / {size}B"
+            if redir:
+                entry += f" → {redir}"
+            patterns.append(entry)
         return patterns
 
 
@@ -568,6 +572,7 @@ class BlazeEngine:
         self.delay = config.get("delay", 0)
         self.show_forbidden = config.get("show_forbidden", False)
         self.extract_js = config.get("extract_js", True)
+        self.follow_subdomains = config.get("follow_subdomains", False)
 
         # Core modules — DynamicSemaphore allows runtime thread adjustment
         self.semaphore = DynamicSemaphore(self.threads)
@@ -1366,6 +1371,11 @@ class BlazeEngine:
         # 1. Real-time tech detection from response content
         self._realtime_tech_detect(result, body, headers)
 
+        # 2. Status code-based auto-extension detection
+        # If a 200 is found on .php, auto-add .php to remaining scans
+        if result.status_code in (200, 201, 204) and self.smart_mode:
+            self._auto_detect_extension(result)
+
         # 3. Queue smart extension probes for suspicious files
         if self.smart_mode and self.smart_extensions.should_probe_extensions(
             result.path, result.status_code
@@ -1408,6 +1418,25 @@ class BlazeEngine:
                             f"Real-time tech detected: {tech} (from /{result.path})"
                         )
                         break
+
+    def _auto_detect_extension(self, result: ScanResult):
+        """Auto-add extension to scan list when a 200 is found on a file with that extension.
+        E.g., if /config.php returns 200, add .php to extensions for remaining scans."""
+        filename = result.path.rstrip("/").rsplit("/", 1)[-1]
+        if "." not in filename:
+            return
+        ext = "." + filename.rsplit(".", 1)[-1].lower()
+        # Only auto-add known web extensions
+        auto_detectable = {
+            ".php", ".asp", ".aspx", ".ashx", ".asmx", ".jsp", ".jsf",
+            ".do", ".action", ".html", ".htm", ".shtml", ".py", ".rb",
+            ".pl", ".cgi", ".cfm", ".json", ".xml",
+        }
+        if ext in auto_detectable and ext not in self.extensions:
+            self.extensions.append(ext)
+            self.reporter.info(
+                f"Auto-added extension {ext} (200 found on /{result.path})"
+            )
 
     async def _probe_smart_extensions(self, result: ScanResult):
         """Probe backup/archive extensions for a discovered file."""
@@ -1457,6 +1486,42 @@ class BlazeEngine:
         # Continue recursion if new dirs found
         if self.found_dirs:
             await self.smart_recursive_scan(current_depth + 1)
+
+    # ════════════════════ PHASE: Subdomain Scanning ════════════════════
+
+    async def _scan_subdomains(self):
+        """Scan discovered subdomains with the same wordlist and config."""
+        from urllib.parse import urlparse
+
+        subdomains = sorted(self._discovered_subdomains)
+        self.reporter.phase(
+            f"Subdomain Scanning ({len(subdomains)} discovered)"
+        )
+
+        original_target = self.target
+        for subdomain in subdomains:
+            if self._stop_event.is_set():
+                break
+
+            # Build target URL for subdomain
+            parsed = urlparse(original_target)
+            sub_target = f"{parsed.scheme}://{subdomain}"
+
+            self.reporter.info(f"Scanning subdomain: {subdomain}")
+
+            # Create a new engine instance for the subdomain
+            sub_config = dict(self.config)
+            sub_config["url"] = sub_target
+            try:
+                sub_engine = BlazeEngine(sub_config)
+                sub_engine.follow_subdomains = False  # Don't recurse subdomains
+                await sub_engine.run()
+                # Merge results
+                self.results.extend(sub_engine.results)
+                self.stats.total_requests += sub_engine.stats.total_requests
+                self.stats.successful += sub_engine.stats.successful
+            except Exception as e:
+                self.reporter.warning(f"Subdomain scan failed for {subdomain}: {e}")
 
     # ════════════════════ PHASE: JS Endpoint Extraction ════════════════════
 
@@ -1515,16 +1580,15 @@ class BlazeEngine:
         if not self.resume_manager.has_saved_state():
             return False
 
-        info = self.resume_manager.resume_info()
-        if info:
-            self.reporter.info(
-                f"Found saved state: {info['scanned']:,} paths scanned, "
-                f"{info['results_found']} results, "
-                f"{info['progress_pct']:.1f}% complete"
-            )
-
         state = self.resume_manager.load_state()
         if state:
+            info = self.resume_manager.resume_info(state)
+            if info:
+                self.reporter.info(
+                    f"Found saved state: {info['scanned']:,} paths scanned, "
+                    f"{info['results_found']} results, "
+                    f"{info['progress_pct']:.1f}% complete"
+                )
             self.scanned_paths = state.scanned_paths
             self.found_dirs = list(state.found_dirs)
             self.reporter.success(
@@ -1636,7 +1700,13 @@ class BlazeEngine:
                 await self.smart_recursive_scan()
                 self.max_depth = old_max
 
-            # Phase 9: Results
+            # Phase 9: Subdomain scanning (if --follow-subdomains)
+            if (self.follow_subdomains
+                    and self._discovered_subdomains
+                    and not self._stop_event.is_set()):
+                await self._scan_subdomains()
+
+            # Phase 10: Results
             self.stats.end_time = time.monotonic()
             self.stats.elapsed = self.stats.end_time - self.stats.start_time
             self.stats.rps = (
@@ -1682,7 +1752,7 @@ class BlazeEngine:
         except KeyboardInterrupt:
             self.reporter.warning("\nScan interrupted by user.")
             if self.config.get("resume", False):
-                self._auto_save_state(wordlist if 'wordlist' in dir() else [])
+                self._auto_save_state(wordlist if 'wordlist' in locals() else [])
                 self.reporter.info("State saved. Use --resume to continue.")
             self.stats.end_time = time.monotonic()
             self.stats.elapsed = self.stats.end_time - self.stats.start_time

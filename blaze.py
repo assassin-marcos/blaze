@@ -115,6 +115,8 @@ Examples:
                        help="Skip smart backup extension probing")
     smart.add_argument("--diff-threshold", type=float, default=0.85,
                        help="Soft-404 similarity threshold (default: 0.85)")
+    smart.add_argument("--follow-subdomains", action="store_true",
+                       help="Auto-scan discovered subdomains (scope-aware)")
     smart.add_argument("--resume", action="store_true",
                        help="Resume an interrupted scan")
     smart.add_argument("--clear-state", action="store_true",
@@ -249,6 +251,7 @@ def build_config(args):
         "discover_params": args.discover_params,
         "pattern": args.pattern,
         "headless": args.headless,
+        "follow_subdomains": args.follow_subdomains,
     }
 
 
