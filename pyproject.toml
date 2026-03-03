@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blaze-scanner"
-version = "2.0.0"
+version = "2.1.0"
 description = "Smart Directory Bruteforce Engine with WAF detection, tech fingerprinting, and adaptive filtering"
 readme = "README.md"
 license = {text = "MIT"}
