@@ -59,6 +59,8 @@ admin/export
 admin/import
 admin/reports
 admin/analytics
+reports
+reports/
 admin/plugins
 admin/modules
 admin/themes

@@ -256,10 +256,10 @@ class RealtimeAdaptiveFilter:
         For redirects (301/302), the redirect_url is included in the key so
         that different redirect targets are NOT grouped together.
         """
-        redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
+        is_redirect = status in (301, 302, 303, 307, 308)
+        redir_tag = redirect_url if is_redirect else ""
         size_key = (status, content_length, redir_tag)
         line_key = (status, line_count, redir_tag)
-        hash_key = (status, content_hash)
         pat_key = self._pattern_key(status, content_length, redir_tag)
 
         # User approved = never filter
@@ -269,17 +269,23 @@ class RealtimeAdaptiveFilter:
         if size_key in self._blocked_size_patterns:
             self.total_filtered += 1
             return True
-        if hash_key in self._blocked_hash_patterns:
-            self.total_filtered += 1
-            return True
         if line_key in self._blocked_line_patterns:
             self.total_filtered += 1
             return True
 
+        # Hash-based filtering — SKIP for redirects because all redirects
+        # have empty/identical bodies; the redirect URL is what matters,
+        # not the body content.
+        if not is_redirect:
+            hash_key = (status, content_hash)
+            if hash_key in self._blocked_hash_patterns:
+                self.total_filtered += 1
+                return True
+            self._hash_counter[hash_key] = self._hash_counter.get(hash_key, 0) + 1
+
         # Track this response
         self._size_counter[size_key] = self._size_counter.get(size_key, 0) + 1
         self._line_counter[line_key] = self._line_counter.get(line_key, 0) + 1
-        self._hash_counter[hash_key] = self._hash_counter.get(hash_key, 0) + 1
 
         # Collect example paths for this pattern
         if path and pat_key not in self._example_paths:
@@ -290,14 +296,16 @@ class RealtimeAdaptiveFilter:
         # Check if any pattern just crossed the threshold
         newly_blocked = False
 
-        # Content hash is the strongest signal (exact same body)
-        if self._hash_counter[hash_key] >= self.size_threshold // 2:
-            if hash_key not in self._blocked_hash_patterns:
-                if pat_key not in self._pending_patterns:
-                    self._pending_patterns[pat_key] = self._example_paths.get(pat_key, [])
-                newly_blocked = True
+        # Content hash is the strongest signal — only for non-redirects
+        if not is_redirect:
+            hash_key = (status, content_hash)
+            if self._hash_counter.get(hash_key, 0) >= self.size_threshold // 2:
+                if hash_key not in self._blocked_hash_patterns:
+                    if pat_key not in self._pending_patterns:
+                        self._pending_patterns[pat_key] = self._example_paths.get(pat_key, [])
+                    newly_blocked = True
 
-        # Size-based detection
+        # Size-based detection (for redirects: only groups by same redirect URL)
         if self._size_counter[size_key] >= self.size_threshold:
             if size_key not in self._blocked_size_patterns:
                 if pat_key not in self._pending_patterns:
@@ -369,15 +377,19 @@ class RealtimeAdaptiveFilter:
                     line_count: int, content_hash: str,
                     redirect_url: str = "") -> bool:
         """Quick check if a response matches known wildcard patterns."""
-        redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
+        is_redirect = status in (301, 302, 303, 307, 308)
+        redir_tag = redirect_url if is_redirect else ""
         pat_key = self._pattern_key(status, content_length, redir_tag)
         if pat_key in self._user_approved:
             return False
-        return (
-            (status, content_length, redir_tag) in self._blocked_size_patterns
-            or (status, content_hash) in self._blocked_hash_patterns
-            or (status, line_count, redir_tag) in self._blocked_line_patterns
-        )
+        if (status, content_length, redir_tag) in self._blocked_size_patterns:
+            return True
+        if (status, line_count, redir_tag) in self._blocked_line_patterns:
+            return True
+        # Hash-based: skip for redirects (body is always empty/same)
+        if not is_redirect and (status, content_hash) in self._blocked_hash_patterns:
+            return True
+        return False
 
     @property
     def blocked_patterns_summary(self) -> List[str]:
@@ -1027,7 +1039,7 @@ class BlazeEngine:
             return True  # already filtered wildcard 401 above
 
         if status == 403:
-            return self.show_forbidden
+            return True  # Show 403 by default (adaptive filter handles wildcard 403)
 
         if status == 405:
             return True  # method not allowed = endpoint exists
@@ -1181,10 +1193,15 @@ class BlazeEngine:
 
                     # ── Collect directories for recursion BEFORE filtering ──
                     # Even if the response gets filtered from display, we still
-                    # want to recurse into discovered directories
+                    # want to recurse into discovered directories.
+                    # Safety: skip paths with file extensions (avoids .bak.bak.bak stacking)
                     if result.is_directory and (self.recursive or self.smart_mode):
                         dir_path = result.path.rstrip("/") + "/"
-                        if dir_path not in self.found_dirs:
+                        dir_basename = result.path.rstrip("/").rsplit("/", 1)[-1]
+                        has_file_ext = "." in dir_basename
+                        if (not has_file_ext
+                                and dir_path not in self.found_dirs
+                                and len(self.found_dirs) < 100):
                             self.found_dirs.append(dir_path)
 
                     # ═══ REAL-TIME ADAPTIVE FILTER (catches wildcard 403, etc.) ═══
