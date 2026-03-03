@@ -391,6 +391,12 @@ TECH_WORDLIST_MAP = {
     "Docker Registry": "docker_kubernetes.txt",
     "Kubernetes": "docker_kubernetes.txt",
     "Swagger": "swagger.txt",
+    "Ghost CMS": "common.txt",
+    "DotNetNuke": "asp.txt",
+    "Kentico": "asp.txt",
+    "Shopify": "common.txt",
+    "PrestaShop": "php.txt",
+    "Nuxt.js": "nodejs.txt",
 }
 
 
@@ -457,10 +463,79 @@ class TechDetector:
                 ("wordpress", "WordPress"),
                 ("drupal", "Drupal"),
                 ("joomla", "Joomla"),
+                ("typo3", "TYPO3"),
+                ("moodle", "Moodle"),
+                ("magento", "Magento"),
+                ("ghost", "Ghost CMS"),
+                ("umbraco", "Umbraco"),
             ]:
                 if keyword in generator.lower():
                     result.add_technology(tech, 0.95)
                     result.cms = tech
+
+        # Technology-specific headers
+        # Jenkins
+        jenkins_hdr = headers.get("X-Jenkins", headers.get("x-jenkins", ""))
+        if jenkins_hdr:
+            result.add_technology("Jenkins", 0.95)
+
+        # Confluence/Atlassian
+        for hdr_name in ["X-Confluence-Request-Time", "X-ASEN",
+                         "x-confluence-request-time", "x-asen"]:
+            if headers.get(hdr_name, ""):
+                result.add_technology("Confluence", 0.9)
+                break
+
+        # SharePoint
+        sp_hdr = headers.get(
+            "MicrosoftSharePointTeamServices",
+            headers.get("microsoftsharepointteamservices", "")
+        )
+        if sp_hdr:
+            result.add_technology("SharePoint", 0.95)
+        sp_health = headers.get(
+            "X-SharePointHealthScore",
+            headers.get("x-sharepointhealthscore", "")
+        )
+        if sp_health:
+            result.add_technology("SharePoint", 0.9)
+
+        # Drupal specific headers
+        drupal_cache = headers.get(
+            "X-Drupal-Cache", headers.get("x-drupal-cache", "")
+        )
+        if drupal_cache:
+            result.add_technology("Drupal", 0.9)
+        drupal_dyn = headers.get(
+            "X-Drupal-Dynamic-Cache",
+            headers.get("x-drupal-dynamic-cache", "")
+        )
+        if drupal_dyn:
+            result.add_technology("Drupal", 0.9)
+
+        # SAP
+        sap_hdr = headers.get("sap-server", headers.get("SAP-Server", ""))
+        if sap_hdr:
+            result.add_technology("SAP", 0.95)
+
+        # AEM / Adobe Experience Manager
+        disp_hdr = headers.get(
+            "X-Dispatcher", headers.get("x-dispatcher", "")
+        )
+        if disp_hdr:
+            result.add_technology("AEM", 0.7)
+        vhost_hdr = headers.get(
+            "X-Vhost", headers.get("x-vhost", "")
+        )
+        if vhost_hdr and disp_hdr:
+            result.add_technology("AEM", 0.85)
+
+        # GitLab
+        gitlab_hdr = headers.get(
+            "X-Gitlab-Meta", headers.get("x-gitlab-meta", "")
+        )
+        if gitlab_hdr:
+            result.add_technology("GitLab", 0.95)
 
         # Cookie-based detection
         for cookie_name in cookies.keys():
