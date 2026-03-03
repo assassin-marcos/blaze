@@ -137,6 +137,7 @@ class WordlistManager:
         """
         seen: Set[str] = set()
         final_words: List[str] = []
+        self.loaded_wordlists: List[str] = []  # Track which wordlists were used
 
         def add_words(words: List[str]):
             for w in words:
@@ -145,6 +146,17 @@ class WordlistManager:
                     seen.add(w)
                     final_words.append(w)
 
+        def load_and_track(name: str, path: str):
+            """Load a wordlist and track it by name."""
+            words = self._load_wordlist(path)
+            if words:
+                before = len(final_words)
+                add_words(words)
+                added = len(final_words) - before
+                if added > 0:
+                    self.loaded_wordlists.append(name)
+            return words
+
         # 1. High-priority paths first
         add_words(HIGH_PRIORITY_PATHS)
 
@@ -152,7 +164,7 @@ class WordlistManager:
         for wl in self.user_wordlists:
             path = self._resolve_wordlist_path(wl)
             if path:
-                add_words(self._load_wordlist(path))
+                load_and_track(os.path.basename(wl), path)
 
         # 3. Smart technology-based wordlists
         if self.smart_mode and tech_result and tech_result.technologies:
@@ -168,20 +180,20 @@ class WordlistManager:
             for wl_file in sorted(tech_wordlists):
                 path = self._resolve_wordlist_path(wl_file)
                 if path:
-                    add_words(self._load_wordlist(path))
+                    load_and_track(wl_file, path)
 
         # 3b. Extra wordlists (subdomain intelligence, custom)
         if extra_wordlists:
             for wl in extra_wordlists:
                 path = self._resolve_wordlist_path(wl)
                 if path:
-                    add_words(self._load_wordlist(path))
+                    load_and_track(os.path.basename(wl), path)
 
         # 4. Always-run wordlists
         for wl in self.always_run_lists:
             path = self._resolve_wordlist_path(wl)
             if path:
-                add_words(self._load_wordlist(path))
+                load_and_track(os.path.basename(wl), path)
 
         # 5. Always-included wordlists (run regardless of tech detection)
         always_included = [
@@ -199,7 +211,7 @@ class WordlistManager:
         for wl_name in always_included:
             wl_path = self._resolve_wordlist_path(wl_name)
             if wl_path:
-                add_words(self._load_wordlist(wl_path))
+                load_and_track(wl_name, wl_path)
 
         return final_words
 

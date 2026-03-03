@@ -1234,8 +1234,8 @@ class BlazeEngine:
     async def _on_result_found(self, result: ScanResult, body: str, headers: dict):
         """Called after every valid result. Triggers smart reactions."""
 
-        # 1. Collect directories for smart recursion
-        if result.is_directory and self.recursive:
+        # 1. Collect directories for smart recursion (always in smart mode)
+        if result.is_directory and (self.recursive or self.smart_mode):
             self.found_dirs.append(result.path.rstrip("/") + "/")
 
         # 2. Real-time tech detection from response content
@@ -1475,13 +1475,13 @@ class BlazeEngine:
 
             # Phase 5: Wordlist assembly
             self.reporter.phase("Wordlist Assembly")
-            available_wls = self.wordlist_manager.get_available_wordlists()
-            self.reporter.info(
-                f"Loaded {len(available_wls)} wordlists from {self.wordlist_manager.wordlist_dir}"
-            )
             all_extra = (subdomain_lists or []) + user_extra_lists
             wordlist = self.wordlist_manager.build_wordlist(
                 tech_result, extra_wordlists=all_extra if all_extra else None
+            )
+            used = self.wordlist_manager.loaded_wordlists
+            self.reporter.info(
+                f"Using {len(used)} wordlists: {', '.join(used)}"
             )
             self.reporter.info(f"Total words to scan: {len(wordlist):,}")
 
@@ -1500,10 +1500,16 @@ class BlazeEngine:
             if self.extract_js and self._js_urls:
                 await self.extract_js_endpoints()
 
-            # Phase 8: Smart recursive scan
-            if self.recursive and self.found_dirs:
-                self.reporter.phase("Smart Recursive Scan")
+            # Phase 8: Smart recursive scan (auto-recurse in smart mode)
+            if self.found_dirs and (self.recursive or self.smart_mode):
+                depth = self.max_depth if self.recursive else 2
+                self.reporter.phase(
+                    f"Smart Recursive Scan ({len(self.found_dirs)} dirs, depth {depth})"
+                )
+                old_max = self.max_depth
+                self.max_depth = depth
                 await self.smart_recursive_scan()
+                self.max_depth = old_max
 
             # Phase 9: Results
             self.stats.end_time = time.monotonic()
