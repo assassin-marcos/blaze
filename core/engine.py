@@ -212,17 +212,17 @@ class RealtimeAdaptiveFilter:
         self.size_threshold = size_threshold
         self.line_threshold = line_threshold
 
-        # (status_code, content_length) → hit count
-        self._size_counter: Dict[Tuple[int, int], int] = {}
-        # (status_code, line_count) → hit count
-        self._line_counter: Dict[Tuple[int, int], int] = {}
+        # (status_code, content_length, redirect_url) → hit count
+        self._size_counter: Dict[tuple, int] = {}
+        # (status_code, line_count, redirect_url) → hit count
+        self._line_counter: Dict[tuple, int] = {}
         # (status_code, content_hash) → hit count
-        self._hash_counter: Dict[Tuple[int, str], int] = {}
+        self._hash_counter: Dict[tuple, int] = {}
 
         # Confirmed wildcard patterns (auto-filter these)
-        self._blocked_size_patterns: Set[Tuple[int, int]] = set()
-        self._blocked_line_patterns: Set[Tuple[int, int]] = set()
-        self._blocked_hash_patterns: Set[Tuple[int, str]] = set()
+        self._blocked_size_patterns: Set[tuple] = set()
+        self._blocked_line_patterns: Set[tuple] = set()
+        self._blocked_hash_patterns: Set[tuple] = set()
 
         # Track what we've already notified about
         self._notified: Set[str] = set()
@@ -231,14 +231,20 @@ class RealtimeAdaptiveFilter:
         self.total_filtered = 0
 
     def track_and_check(self, status: int, content_length: int,
-                        line_count: int, content_hash: str) -> bool:
+                        line_count: int, content_hash: str,
+                        redirect_url: str = "") -> bool:
         """
         Track a response and check if it matches a known wildcard pattern.
         Returns True if this response should be FILTERED (is wildcard junk).
+
+        For redirects (301/302), the redirect_url is included in the key so
+        that different redirect targets are NOT grouped together.
         """
-        # Fast path: already blocked?
-        size_key = (status, content_length)
-        line_key = (status, line_count)
+        # For redirects, include the redirect URL in the key so that
+        # paths redirecting to different locations are treated separately
+        redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
+        size_key = (status, content_length, redir_tag)
+        line_key = (status, line_count, redir_tag)
         hash_key = (status, content_hash)
 
         if size_key in self._blocked_size_patterns:
@@ -304,19 +310,22 @@ class RealtimeAdaptiveFilter:
         return None
 
     def is_filtered(self, status: int, content_length: int,
-                    line_count: int, content_hash: str) -> bool:
+                    line_count: int, content_hash: str,
+                    redirect_url: str = "") -> bool:
         """Quick check if a response matches known wildcard patterns."""
+        redir_tag = redirect_url if status in (301, 302, 303, 307, 308) else ""
         return (
-            (status, content_length) in self._blocked_size_patterns
+            (status, content_length, redir_tag) in self._blocked_size_patterns
             or (status, content_hash) in self._blocked_hash_patterns
-            or (status, line_count) in self._blocked_line_patterns
+            or (status, line_count, redir_tag) in self._blocked_line_patterns
         )
 
     @property
     def blocked_patterns_summary(self) -> List[str]:
         """Summary of all blocked patterns for reporting."""
         patterns = []
-        for status, size in sorted(self._blocked_size_patterns):
+        for pattern in sorted(self._blocked_size_patterns):
+            status, size = pattern[0], pattern[1]
             patterns.append(f"HTTP {status} / {size}B")
         return patterns
 
@@ -896,11 +905,13 @@ class BlazeEngine:
         if status in HIDDEN_STATUS_CODES:
             return False
 
-        # Wildcard status check (applies to all)
-        if self._is_wildcard_status(status):
+        # Wildcard status check — only blanket-filter 401/403 (auth gateways).
+        # Do NOT blanket-filter 301/302 here — redirects are handled by the
+        # content-aware wildcard check below which compares Location headers.
+        if status in (401, 403) and self._is_wildcard_status(status):
             return False
 
-        # Standard wildcard content check
+        # Standard wildcard content check (Location-aware for redirects)
         if self.wildcard_detector.is_wildcard(result):
             return False
 
@@ -1051,8 +1062,10 @@ class BlazeEngine:
 
                     # ═══ REAL-TIME ADAPTIVE FILTER (catches wildcard 403, etc.) ═══
                     # This runs BEFORE everything else — it learns patterns live
+                    redir_url = result.redirect_url or ""
                     is_junk = self.adaptive_filter.track_and_check(
-                        resp.status, content_length, line_count, content_hash
+                        resp.status, content_length, line_count, content_hash,
+                        redirect_url=redir_url
                     )
                     if is_junk:
                         self.stats.filtered += 1
@@ -1070,7 +1083,8 @@ class BlazeEngine:
                         return
 
                     if self.adaptive_filter.is_filtered(
-                        resp.status, content_length, line_count, content_hash
+                        resp.status, content_length, line_count, content_hash,
+                        redirect_url=redir_url
                     ):
                         self.stats.filtered += 1
                         self.rate_limiter.on_success()

@@ -38,6 +38,7 @@ class WildcardDetector:
         self.has_wildcard = False
         self.wildcard_status: int = 0
         self.wildcard_size: int = 0
+        self.wildcard_redirect: str = ""  # Where wildcard 301/302 redirects to
         self.profiles: list = []
         self._response_hashes: Set[str] = set()
         self._seen_hashes: Dict[str, int] = {}
@@ -53,6 +54,7 @@ class WildcardDetector:
         ]
 
         profiles = []
+        redirect_locations = []
         for probe in probes:
             try:
                 url = f"{target}/{probe}"
@@ -68,6 +70,11 @@ class WildcardDetector:
                         line_count=body.count("\n") + 1,
                     )
                     profiles.append(profile)
+                    # Track redirect Location for 301/302
+                    if resp.status in (301, 302, 303, 307, 308):
+                        redirect_locations.append(
+                            str(resp.headers.get("Location", ""))
+                        )
             except Exception:
                 continue
 
@@ -101,6 +108,13 @@ class WildcardDetector:
                         self.wildcard_size = int(avg_size)
                         self.profiles = profiles
 
+                # Store wildcard redirect location (most common)
+                if redirect_locations:
+                    from collections import Counter
+                    common = Counter(redirect_locations).most_common(1)
+                    if common:
+                        self.wildcard_redirect = common[0][0]
+
     def is_wildcard(self, result: "ScanResult") -> bool:
         """Check if a scan result matches the wildcard profile."""
         if not self.has_wildcard:
@@ -109,6 +123,14 @@ class WildcardDetector:
         # Status code must match
         if result.status_code != self.wildcard_status:
             return False
+
+        # For redirects (301/302/307/308): compare Location header.
+        # If the redirect goes somewhere DIFFERENT than the wildcard redirect,
+        # it's a real finding (the path exists and redirects to its own location).
+        if result.status_code in (301, 302, 303, 307, 308) and self.wildcard_redirect:
+            result_redirect = getattr(result, "redirect_url", "") or ""
+            if result_redirect and result_redirect != self.wildcard_redirect:
+                return False  # Different redirect = NOT wildcard = real result
 
         # Check content hash (exact match)
         if result.content_hash in self._response_hashes:
