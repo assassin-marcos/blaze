@@ -1416,21 +1416,11 @@ class BlazeEngine:
             # Phase 2: WAF Detection
             if not self.config.get("no_waf_check", False):
                 waf_result = await self.detect_waf(probe_data)
-                if waf_result.detected and not self.force:
-                    if self.user_prompt_callback:
-                        should_continue = await self.user_prompt_callback(
-                            f"\n  WAF Detected: {', '.join(waf_result.waf_names)}\n"
-                            f"  Continuing may get your IP blocked.\n"
-                            f"  Continue scanning? (y/N): "
-                        )
-                        if not should_continue:
-                            self.reporter.info("Scan aborted by user.")
-                            return
-                    else:
-                        self.reporter.error(
-                            "WAF detected. Use --force to continue or run interactively."
-                        )
-                        return
+                if waf_result.detected:
+                    self.reporter.warning(
+                        f"WAF Detected: {', '.join(waf_result.waf_names)} — "
+                        f"continuing scan automatically"
+                    )
 
             # Phase 3: Technology Detection
             tech_result = TechResult()
