@@ -25,7 +25,7 @@ from .waf_detector import WAFDetector, WAFResult
 from .tech_detector import TechDetector, TechResult
 from .wordlist_manager import WordlistManager
 from .filters import ResponseFilter, WildcardDetector
-from .reporter import Reporter, ScanResult, ScanStats
+from .reporter import Reporter, ScanResult, ScanStats, Colors
 from .response_differ import ResponseDiffer
 from .smart_recursion import SmartRecursion
 from .smart_extensions import SmartExtensions
@@ -1467,6 +1467,10 @@ class BlazeEngine:
 
             # Phase 5: Wordlist assembly
             self.reporter.phase("Wordlist Assembly")
+            available_wls = self.wordlist_manager.get_available_wordlists()
+            self.reporter.info(
+                f"Loaded {len(available_wls)} wordlists from {self.wordlist_manager.wordlist_dir}"
+            )
             all_extra = (subdomain_lists or []) + user_extra_lists
             wordlist = self.wordlist_manager.build_wordlist(
                 tech_result, extra_wordlists=all_extra if all_extra else None
