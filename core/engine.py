@@ -1061,11 +1061,20 @@ class BlazeEngine:
                         content_hash=content_hash,
                     )
 
-                    # Directory detection
-                    if resp.status in (200, 301, 302, 403) and (
-                        path.endswith("/")
-                        or resp.headers.get("Content-Type", "").startswith("text/html")
-                    ):
+                    # Directory detection — avoid false positives on files
+                    # like .ashx, .asmx, .php that return text/html
+                    basename = path.rstrip("/").rsplit("/", 1)[-1]
+                    has_extension = "." in basename
+                    if path.endswith("/"):
+                        result.is_directory = True
+                    elif resp.status in (301, 302) and not has_extension:
+                        # Redirect on extensionless path = likely a directory
+                        loc = str(resp.headers.get("Location", ""))
+                        if loc.endswith("/"):
+                            result.is_directory = True
+                    elif (resp.status in (200, 403)
+                          and not has_extension
+                          and resp.headers.get("Content-Type", "").startswith("text/html")):
                         result.is_directory = True
 
                     # ═══ REAL-TIME ADAPTIVE FILTER (catches wildcard 403, etc.) ═══

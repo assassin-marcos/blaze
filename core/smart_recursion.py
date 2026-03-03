@@ -10,7 +10,12 @@ import re
 from typing import List, Set, Dict, Tuple, Optional
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORDLIST_DIR = os.path.join(BASE_DIR, "wordlists")
+# Primary: wordlists inside core package (works with pip install)
+_CORE_DIR = os.path.dirname(os.path.abspath(__file__))
+_PKG_WORDLISTS = os.path.join(_CORE_DIR, "wordlists")
+# Fallback: wordlists at repo root level (works from source)
+_REPO_WORDLISTS = os.path.join(BASE_DIR, "wordlists")
+WORDLIST_DIR = _PKG_WORDLISTS if os.path.isdir(_PKG_WORDLISTS) else _REPO_WORDLISTS
 
 # ──────── Context Mapping ────────
 # Maps directory name patterns to wordlists that should be used for recursion.
