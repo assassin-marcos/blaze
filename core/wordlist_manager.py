@@ -24,6 +24,19 @@ HIGH_PRIORITY_PATHS = [
     "swagger", "swagger-ui.html", "swagger.json", "openapi.json",
     ".git", ".svn", ".env.backup", ".env.local",
     "debug", "test", "staging", "dev",
+    # New tech-specific high-value paths
+    "umbraco/", "umbraco/login", "umbraco/backoffice/",
+    "typo3/", "typo3conf/", "fileadmin/",
+    "crx/de", "content/dam/", "system/console",
+    "_layouts/", "_catalogs/", "_vti_pvt/",
+    "confluence/", "rest/api/content", "login.action",
+    "jenkins/", "job/", "script",
+    "users/sign_in", "explore/projects",
+    "_cluster/health", "_cat/indices",
+    "sap/bc/", "irj/portal",
+    "v2/_catalog",
+    "graphql", "graphiql",
+    "kibana/", "solr/", "prometheus/",
 ]
 
 
@@ -165,6 +178,12 @@ class WordlistManager:
         backup_path = self._resolve_wordlist_path("backup.txt")
         if backup_path:
             add_words(self._load_wordlist(backup_path))
+
+        # 7. Sensitive files and paths wordlists
+        for sensitive_wl in ["sensitive.txt", "sensitive_files.txt"]:
+            sensitive_path = self._resolve_wordlist_path(sensitive_wl)
+            if sensitive_path:
+                add_words(self._load_wordlist(sensitive_path))
 
         return final_words
 

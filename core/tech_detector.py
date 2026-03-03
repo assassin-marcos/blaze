@@ -110,6 +110,14 @@ COOKIE_SIGNATURES = {
     r"_shopify_sa_t": ("Shopify", 0.9),
     r"magento": ("Magento", 0.8),
     r"frontend=": ("Magento", 0.5),
+    r"MoodleSession": ("Moodle", 0.9),
+    r"confluence\.": ("Confluence", 0.7),
+    r"JSESSIONID.*confluence": ("Confluence", 0.8),
+    r"crowd\.token": ("Confluence", 0.8),
+    r"JENKINS_SESSION_ID": ("Jenkins", 0.9),
+    r"_gitlab_session": ("GitLab", 0.95),
+    r"_sap_": ("SAP", 0.7),
+    r"sap-usercontext": ("SAP", 0.9),
 }
 
 # ─────────────────────── Body-Based Detection ───────────────────────
@@ -158,6 +166,42 @@ BODY_SIGNATURES = {
     r"hugo-": ("Hugo", 0.5),
     r"jekyll": ("Jekyll", 0.5),
     r"pelican": ("Pelican", 0.5),
+    # New CMS/Tech signatures
+    r"/moodle/": ("Moodle", 0.8),
+    r"theme/yui_combo": ("Moodle", 0.7),
+    r'<meta\s+name=["\']generator["\'][^>]*moodle': ("Moodle", 0.95),
+    r"/_layouts/": ("SharePoint", 0.8),
+    r"/_catalogs/": ("SharePoint", 0.7),
+    r"/sharepoint/": ("SharePoint", 0.7),
+    r"SharePoint": ("SharePoint", 0.6),
+    r"/content/dam/": ("AEM", 0.85),
+    r"/crx/de": ("AEM", 0.9),
+    r"/etc\.clientlibs/": ("AEM", 0.8),
+    r"/libs/granite/": ("AEM", 0.9),
+    r"confluence": ("Confluence", 0.6),
+    r"/rest/api/content": ("Confluence", 0.8),
+    r"ajs-version-number": ("Confluence", 0.9),
+    r"/s/en_GB/": ("Confluence", 0.7),
+    r"X-Confluence": ("Confluence", 0.9),
+    r"/jenkins/": ("Jenkins", 0.7),
+    r'<meta\s+name=["\']\.crumb["\']': ("Jenkins", 0.9),
+    r"/gitlab/": ("GitLab", 0.7),
+    r"gon\.api_version": ("GitLab", 0.9),
+    r"gitlab-ce\b|gitlab-ee\b": ("GitLab", 0.9),
+    r"/_cluster/health": ("Elasticsearch", 0.9),
+    r"elasticsearch": ("Elasticsearch", 0.6),
+    r"/sap/bc/": ("SAP", 0.9),
+    r"/sap/opu/": ("SAP", 0.85),
+    r"SAP NetWeaver": ("SAP", 0.9),
+    r"/graphql": ("GraphQL", 0.7),
+    r"graphiql": ("GraphQL", 0.8),
+    r"/swagger-ui": ("Swagger", 0.8),
+    r"swagger-ui-bundle\.js": ("Swagger", 0.9),
+    r"openapi": ("Swagger", 0.6),
+    r"/docker/": ("Docker", 0.5),
+    r"/v2/_catalog": ("Docker Registry", 0.9),
+    r"kubernetes": ("Kubernetes", 0.6),
+    r"/api/v1/namespaces": ("Kubernetes", 0.9),
 }
 
 # ──────────────────── Active Probe Paths ────────────────────
@@ -218,6 +262,52 @@ TECH_PROBE_PATHS = [
     # TYPO3
     ("typo3/", "TYPO3"),
     ("typo3conf/", "TYPO3"),
+    # Umbraco
+    ("umbraco/", "Umbraco"),
+    ("umbraco/login", "Umbraco"),
+    # Magento (additional)
+    ("downloader/", "Magento"),
+    # Moodle
+    ("moodle/", "Moodle"),
+    ("login/index.php", "Moodle"),
+    ("lib/ajax/", "Moodle"),
+    # SharePoint
+    ("_layouts/", "SharePoint"),
+    ("_catalogs/masterpage/", "SharePoint"),
+    ("_vti_pvt/", "SharePoint"),
+    # AEM (Adobe Experience Manager)
+    ("crx/de", "AEM"),
+    ("content/dam/", "AEM"),
+    ("system/console", "AEM"),
+    ("libs/granite/core/content/login.html", "AEM"),
+    # Confluence
+    ("rest/api/content", "Confluence"),
+    ("login.action", "Confluence"),
+    # Jenkins
+    ("jenkins/", "Jenkins"),
+    ("securityRealm/commenceLogin", "Jenkins"),
+    ("login?from=%2F", "Jenkins"),
+    # GitLab
+    ("users/sign_in", "GitLab"),
+    ("-/health", "GitLab"),
+    ("explore/projects", "GitLab"),
+    # Elasticsearch
+    ("_cluster/health", "Elasticsearch"),
+    ("_cat/indices", "Elasticsearch"),
+    # SAP
+    ("sap/bc/gui/sap/its/webgui", "SAP"),
+    ("irj/portal", "SAP"),
+    # Docker Registry
+    ("v2/_catalog", "Docker"),
+    ("v2/", "Docker"),
+    # Kubernetes
+    ("api/v1/namespaces", "Kubernetes"),
+    ("healthz", "Kubernetes"),
+    # Swagger/OpenAPI
+    ("swagger-ui.html", "Swagger"),
+    ("swagger.json", "Swagger"),
+    ("openapi.json", "Swagger"),
+    ("v3/api-docs", "Swagger"),
 ]
 
 # ─────────────────── Extension Mapping ───────────────────
@@ -248,6 +338,17 @@ TECH_EXTENSIONS = {
     "Perl": [".pl", ".cgi"],
     "Go": [".html"],
     "Rust": [".html"],
+    "Magento": [".php", ".phtml"],
+    "Magento 2": [".php", ".phtml"],
+    "TYPO3": [".php", ".html"],
+    "Umbraco": [".aspx", ".ashx", ".cshtml"],
+    "Moodle": [".php"],
+    "SharePoint": [".aspx", ".ashx", ".asmx"],
+    "AEM": [".html", ".json", ".xml"],
+    "Confluence": [".action", ".do"],
+    "Jenkins": [".html", ".xml"],
+    "GitLab": [".html", ".json"],
+    "SAP": [".html", ".xml"],
 }
 
 # ───────────── Wordlist Mapping (tech → wordlist file) ─────────────
@@ -273,7 +374,23 @@ TECH_WORDLIST_MAP = {
     "Express/Node.js": "nodejs.txt",
     "Next.js": "nodejs.txt",
     "API": "api.txt",
-    "GraphQL": "api.txt",
+    "GraphQL": "graphql.txt",
+    "Magento": "magento.txt",
+    "Magento 2": "magento.txt",
+    "TYPO3": "typo3.txt",
+    "Umbraco": "umbraco.txt",
+    "Moodle": "moodle.txt",
+    "SharePoint": "sharepoint.txt",
+    "AEM": "aem.txt",
+    "Confluence": "confluence.txt",
+    "Jenkins": "jenkins.txt",
+    "GitLab": "gitlab.txt",
+    "Elasticsearch": "elasticsearch.txt",
+    "SAP": "sap.txt",
+    "Docker": "docker_kubernetes.txt",
+    "Docker Registry": "docker_kubernetes.txt",
+    "Kubernetes": "docker_kubernetes.txt",
+    "Swagger": "swagger.txt",
 }
 
 

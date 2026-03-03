@@ -159,7 +159,6 @@ opcache.php
 php_info.php
 phpinfo.php
 phpmyadmin
-phpMyAdmin
 ping
 pma
 private
@@ -189,7 +188,6 @@ temp
 temp/
 test.php
 tracfastcgi
-TracFastCgi
 uploads
 upstream
 upstream_conf

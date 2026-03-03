@@ -713,7 +713,6 @@ shopfiles/wp-admin
 si/wp-admin
 simple-talk/wp-admin
 site/wp-admin
-Site/wp-admin
 site/wp-content/cache/autoptimize
 site/wp-content/plugins/mailchimp-for-wp/assets/css
 site/wp-content/plugins/microaudio
@@ -855,8 +854,6 @@ woocommerce-parcelas-public.php
 woocommerce.asp
 woostore/wp-admin
 wordpress
-WordPress
-Wordpress
 wordpress-2
 wordpress-backup
 wordpress-category-page-seo.php
@@ -884,8 +881,6 @@ wordpress.tar.gz
 wordpress.txt.gz
 wordpress.zip
 wordpress/
-WordPress/
-Wordpress/
 wordpress/archives/
 wordpress/archives/date/
 wordpress/archives/tag/
@@ -905,7 +900,6 @@ wordpress/trackback
 wordpress/trackback/
 wordpress/wordpress
 WordPress/wp-admin
-wordpress/wp-admin
 wordpress/wp-config.php
 wordpress/wp-content/cache/autoptimize
 wordpress/wp-content/debug.log
@@ -2156,7 +2150,6 @@ wp-content/themes/3-col
 wp-content/themes/365cars_new/js
 wp-content/themes/3clicks-3.9.1/css
 wp-content/themes/3clicks/css
-wp-content/themes/3nv51سس
 wp-content/themes/3nv52
 wp-content/themes/4users
 wp-content/themes/56cto
@@ -2371,7 +2364,6 @@ wp-content/themes/BEC-trek/templates
 wp-content/themes/bee/functions/theme
 wp-content/themes/beepsong2/php
 wp-content/themes/begin
-wp-content/themes/Begin
 wp-content/themes/begin1_8
 wp-content/themes/begin2
 wp-content/themes/begin2.0
@@ -2570,7 +2562,6 @@ wp-content/themes/chamwings
 wp-content/themes/change
 wp-content/themes/channel5/ng-tpl
 wp-content/themes/ChannelPro
-wp-content/themes/channelpro
 wp-content/themes/chaopraya_v2
 wp-content/themes/chariot/_include/css
 wp-content/themes/chc
@@ -2591,7 +2582,6 @@ wp-content/themes/ci_old/inc
 wp-content/themes/CineFilmes3
 wp-content/themes/cinema5dnew/share
 wp-content/themes/circles/css
-wp-content/themes/Circles/css
 wp-content/themes/city-desk
 wp-content/themes/city-of-round-rock/inc
 wp-content/themes/City_News/scripts
@@ -3754,7 +3744,6 @@ wp-content/themes/nakom/scripts
 wp-content/themes/nalgasylibros/templates
 wp-content/themes/Nana
 wp-content/themes/nanomag
-wp-content/themes/Nanomag
 wp-content/themes/nanopress
 wp-content/themes/nappyvalleynet
 wp-content/themes/narodrec
@@ -3792,7 +3781,6 @@ wp-content/themes/news/framework/timthumb
 wp-content/themes/news/templates
 wp-content/themes/news/tools
 wp-content/themes/News2
-wp-content/themes/news2
 wp-content/themes/news_ru/ajax
 wp-content/themes/news_ru/new_theme/ajax
 wp-content/themes/news_ru/new_theme/css
@@ -3852,7 +3840,6 @@ wp-content/themes/Novavideo Pro v2.2.2/css
 wp-content/themes/novavideo-viejo/css
 wp-content/themes/novavideo.1394/css
 wp-content/themes/novavideo/css
-wp-content/themes/Novavideo/css
 wp-content/themes/novavideo206/css
 wp-content/themes/novavideo222/css
 wp-content/themes/novavideo_main-files/novavideo/scripts
@@ -3978,7 +3965,6 @@ wp-content/themes/piligrim
 wp-content/themes/pillaicenter
 wp-content/themes/pinboard/includes
 wp-content/themes/Pindol
-wp-content/themes/pindol
 wp-content/themes/pinpoint/css
 wp-content/themes/pipedream2016/css
 wp-content/themes/Pirlotves
@@ -4546,10 +4532,8 @@ wp-content/themes/Tinection-Pro-master/includes/css
 wp-content/themes/tinection/functions
 wp-content/themes/Tinection/includes
 wp-content/themes/Tinection/includes/css
-wp-content/themes/tinection/includes/css
 wp-content/themes/Tinection1.1.9/includes/css
 wp-content/themes/Tint/core/library/timthumb
-wp-content/themes/tint/core/library/timthumb
 wp-content/themes/Tint2/core/library/timthumb
 wp-content/themes/tisson
 wp-content/themes/TKinkade/images
@@ -4580,7 +4564,6 @@ wp-content/themes/traficoporno/js
 wp-content/themes/trailrunnermagazine/function
 wp-content/themes/tralala/services
 wp-content/themes/transcript
-wp-content/themes/Transcript
 wp-content/themes/transcript-v27
 wp-content/themes/Transcript2
 wp-content/themes/transcriptv2
@@ -4952,7 +4935,6 @@ wp-content/themes/wplmschild
 wp-content/themes/wpmen_v2/fonts
 wp-content/themes/wpmfc-theme
 wp-content/themes/wpnewspaper
-wp-content/themes/WpNewspaper
 wp-content/themes/wpremix3
 wp-content/themes/wpremix_3_single/wpremix3
 wp-content/themes/wpshop_biz
@@ -5027,7 +5009,6 @@ wp-content/themes/yourself-pro/resources/css
 wp-content/themes/ypo-new-orig/css
 wp-content/themes/ypo-new-orig/js
 wp-content/themes/Yusi
-wp-content/themes/yusi
 wp-content/themes/yusi1.0
 wp-content/themes/YV Zimbabwe
 wp-content/themes/yw_charters/scripts
@@ -5533,7 +5514,6 @@ wp/wp-content/plugins/mousewheel-smooth-scroll/js
 wp/wp-content/plugins/MyRP
 wp/wp-content/plugins/polls
 WP/wp-content/plugins/revslider/rs-plugin/css
-wp/wp-content/plugins/revslider/rs-plugin/css
 wp/wp-content/plugins/sharify
 wp/wp-content/plugins/simple-ads-manager
 wp/wp-content/plugins/slideshow-gallery/views/default
@@ -5624,7 +5604,6 @@ ww/wp-admin
 www5/wp-content/themes/treanni
 x/wp-content/themes/tw/ajax
 Xmlrpc.php
-xmlrpc.php
 xmlrpc.php$
 xmlrpc.php/
 xxii_ayuntamiento/wp-admin

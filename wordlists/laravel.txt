@@ -133,7 +133,6 @@ googlealternatead-horizontal.html
 home
 homepage_horizontal.asp
 horizon
-Horizon
 HORIZON-ONE-RECRUITMENT-PTY-LTD.ashx
 horizon.png.aspx
 horizon/api/stats
@@ -148,7 +147,6 @@ horizontal-v2.php
 horizontal-widget.html
 horizontal.html
 horizontal.php
-Horizontal.php
 horizontal_carousel.html
 horizontal_slide.html
 HorizontalAlignmentPositionSC.class.php
@@ -313,7 +311,6 @@ vendor/autoload.php
 vendor/composer/installed.json
 vite.config.js
 vsehorizon
-VSEHORIZON
 web.config
 webpack.mix.js
 whitelabelhorizontal.aspx

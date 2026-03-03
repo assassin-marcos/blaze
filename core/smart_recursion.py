@@ -38,7 +38,9 @@ CONTEXT_MAP = [
     # Tomcat
     (r"(?i)(tomcat|catalina|manager|host-manager|WEB-INF|META-INF)", ["tomcat.txt", "jsp.txt"]),
     # IIS/ASP.NET
-    (r"(?i)(aspnet|asp|iis|_vti_|bin|App_Data|App_Code|umbraco)", ["asp.txt", "iis.txt"]),
+    (r"(?i)(aspnet|asp|iis|_vti_|bin|App_Data|App_Code)", ["asp.txt", "iis.txt"]),
+    # Umbraco
+    (r"(?i)(umbraco|App_Plugins)", ["umbraco.txt", "asp.txt"]),
     # PHP directories
     (r"(?i)(php|include|lib|class|module|vendor|composer)", ["php.txt"]),
     # Node.js
@@ -67,6 +69,36 @@ CONTEXT_MAP = [
     (r"(?i)(content|page|pages|post|posts|blog|article|news|cms|template|theme)", ["common.txt"]),
     # Documentation
     (r"(?i)(doc|docs|documentation|help|support|wiki|manual|readme|guide)", ["common.txt"]),
+    # Magento
+    (r"(?i)(magento|downloader|skin/frontend|static/frontend|pub/static)", ["magento.txt", "php.txt"]),
+    # TYPO3
+    (r"(?i)(typo3|typo3conf|typo3temp|fileadmin)", ["typo3.txt", "php.txt"]),
+    # Moodle
+    (r"(?i)(moodle|mod/|course/|grade/|blocks/)", ["moodle.txt", "php.txt"]),
+    # SharePoint
+    (r"(?i)(sharepoint|_layouts|_catalogs|_vti_pvt|Lists)", ["sharepoint.txt", "asp.txt"]),
+    # AEM (Adobe Experience Manager)
+    (r"(?i)(aem|content/dam|crx|libs/granite|etc\.clientlibs)", ["aem.txt"]),
+    # Confluence
+    (r"(?i)(confluence|wiki|spaces|rest/api)", ["confluence.txt"]),
+    # Jenkins
+    (r"(?i)(jenkins|job|view|credentials|configureSecurity)", ["jenkins.txt"]),
+    # GitLab
+    (r"(?i)(gitlab|explore|snippets|groups)", ["gitlab.txt"]),
+    # Elasticsearch
+    (r"(?i)(elastic|_cluster|_cat|kibana)", ["elasticsearch.txt"]),
+    # SAP
+    (r"(?i)(sap|irj|nwa|webdynpro|bc/gui)", ["sap.txt"]),
+    # Docker/Kubernetes
+    (r"(?i)(docker|container|kubernetes|k8s|kube|registry|v2/_catalog)", ["docker_kubernetes.txt"]),
+    # DevOps / CI-CD
+    (r"(?i)(devops|cicd|ci-cd|pipeline|deploy|ansible|terraform|vault)", ["devops.txt", "cloud_devops.txt"]),
+    # GraphQL
+    (r"(?i)(graphql|graphiql|playground)", ["graphql.txt", "api.txt"]),
+    # Swagger / API Docs
+    (r"(?i)(swagger|openapi|api-docs|redoc)", ["swagger.txt", "api.txt"]),
+    # Sensitive files/paths
+    (r"(?i)(\.git|\.svn|\.env|\.htpasswd|private|secret|credential|key|token)", ["sensitive.txt", "sensitive_files.txt", "backup.txt"]),
 ]
 
 # Directories worth always scanning with common.txt in addition to context lists

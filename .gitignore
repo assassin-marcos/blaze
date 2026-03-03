@@ -19,3 +19,6 @@ venv/
 .pytest_cache/
 wordlists/dict/
 wordlists/Archive.zip
+wordlists/__MACOSX/
+*.DS_Store
+.claude/

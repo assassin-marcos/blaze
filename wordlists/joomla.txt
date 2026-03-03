@@ -791,9 +791,7 @@ installation/sql/mysql/joomla.sql
 installation/sql/postgresql/joomla.sql
 installation/sql/sqlazure/joomla.sql
 Joomla
-joomla
 Joomla-1
-joomla-1
 joomla-templates
 joomla-templates/joominamarket/chaardoctor
 joomla-templates/joominamarket/chaardoctor/modules/mod_maximenuck/themes/blank/css
@@ -801,7 +799,6 @@ joomla.aspx
 joomla.bak
 Joomla.htm
 Joomla.php
-joomla.php
 joomla.rar
 joomla.sql
 joomla.xml
@@ -814,12 +811,10 @@ joomla/plugins/editors/jckeditor/typography
 joomla1
 joomla1.5
 joomla15
-Joomla15
 joomla16
 joomla2
 joomla3
 joomla_1
-Joomla_1
 joomla_test
 joomlademo
 joomladev

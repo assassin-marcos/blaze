@@ -41,7 +41,6 @@ bitbucket
 cas
 cas/login
 Catalina
-catalina
 Cognitohunter                   GitTools                      onelistforsallmicro.txt        tomcat-wordlist.txt
 conf/Catalina
 conf/catalina.policy
@@ -53,9 +52,7 @@ confluence
 console
 crowd
 CustomCategory
-customcategory
 customcategory.aspx
-CustomCategory.aspx
 docs
 docs/appdev
 docs/architecture
@@ -156,9 +153,6 @@ ROOT
 ROOT/WEB-INF
 ROOT/WEB-INF/web.xml
 RUNNING.txt
-servlet/org.apache.catalina.ContainerServlet/<script>alert('Vulnerable')</script>
-servlet/org.apache.catalina.Context/<script>alert('Vulnerable')</script>
-servlet/org.apache.catalina.Globals/<script>alert('Vulnerable')</script>
 servlet/org.apache.catalina.INVOKER.org.apache.catalina.servlets.DefaultServlet/tomcat.gif
 servlet/org.apache.catalina.INVOKER.org.apache.catalina.servlets.SnoopAllServlet
 servlet/org.apache.catalina.INVOKER.org.apache.catalina.servlets.WebdavServlet/
@@ -170,7 +164,6 @@ servlet/org.apache.catalina.servlets.InvokerServlet/org.apache.catalina.servlets
 servlet/org.apache.catalina.servlets.ManagerServlet
 servlet/org.apache.catalina.servlets.SnoopAllServlet
 servlet/org.apache.catalina.servlets.WebdavServlet/
-servlet/org.apache.catalina.servlets.WebdavStatus/<script>alert('Vulnerable')</script>
 spring
 spring-boot
 status

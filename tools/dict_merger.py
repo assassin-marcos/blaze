@@ -55,6 +55,40 @@ CLASSIFICATION_RULES = [
     (r"(?i)(\.bak$|\.old$|\.orig$|\.save$|\.swp$|\.zip$|\.tar|\.gz$|\.rar$|\.7z$|\.sql$|backup|\.env|\.git/|\.svn|\.key$|\.pem$|\.crt$|id_rsa|password|credential|secret|sensitive|\.log$|debug|trace)", "backup.txt"),
     # JSP / Java EE
     (r"(?i)(\.jsp$|\.jsf$|\.faces$|web\.xml|struts\.xml|beans\.xml|persistence\.xml|MANIFEST\.MF)", "jsp.txt"),
+    # Magento
+    (r"(?i)(magento|downloader|skin/frontend|static/frontend|Mage_)", "magento.txt"),
+    # TYPO3
+    (r"(?i)(typo3|typo3conf|typo3temp|fileadmin|t3lib)", "typo3.txt"),
+    # Umbraco (specific)
+    (r"(?i)(umbraco|App_Plugins/Umbraco|Umbraco\.Core)", "umbraco.txt"),
+    # Moodle
+    (r"(?i)(moodle|mod/assign|mod/quiz|course/view|grade/report|blocks/)", "moodle.txt"),
+    # SharePoint
+    (r"(?i)(sharepoint|_layouts|_catalogs|_vti_pvt|Lists/|SitePages)", "sharepoint.txt"),
+    # AEM
+    (r"(?i)(content/dam|crx/de|libs/granite|etc\.clientlibs|sling|jcr:)", "aem.txt"),
+    # Confluence
+    (r"(?i)(confluence|spaces/|rest/api/content|login\.action|ajs-)", "confluence.txt"),
+    # Jenkins
+    (r"(?i)(jenkins|job/|view/|credentials|configureSecurity|securityRealm)", "jenkins.txt"),
+    # GitLab
+    (r"(?i)(gitlab|explore/projects|snippets|groups/|users/sign_in)", "gitlab.txt"),
+    # Elasticsearch
+    (r"(?i)(elasticsearch|_cluster|_cat/indices|kibana|_search|_mapping)", "elasticsearch.txt"),
+    # SAP
+    (r"(?i)(sap/bc|sap/opu|irj/portal|webdynpro|nwa/|SAP NetWeaver)", "sap.txt"),
+    # Docker / Kubernetes
+    (r"(?i)(docker|kubernetes|k8s|kube|v2/_catalog|registry|helm|container)", "docker_kubernetes.txt"),
+    # DevOps
+    (r"(?i)(devops|cicd|pipeline|deploy|ansible|terraform|vault|prometheus|grafana)", "devops.txt"),
+    # Cloud
+    (r"(?i)(aws|azure|gcp|cloud|s3|lambda|cloudformation|ec2|iam)", "cloud_devops.txt"),
+    # GraphQL
+    (r"(?i)(graphql|graphiql|playground|mutation|query\s*\{)", "graphql.txt"),
+    # Swagger / OpenAPI
+    (r"(?i)(swagger|openapi|api-docs|redoc|springfox|springdoc)", "swagger.txt"),
+    # Sensitive files
+    (r"(?i)(\.env|\.git/|\.svn/|id_rsa|\.pem$|\.key$|password|credential|secret|token|\.htpasswd|shadow|passwd)", "sensitive_files.txt"),
 ]
 
 # Source file → forced target mapping (known files)
@@ -67,8 +101,8 @@ KNOWN_SOURCE_MAP = {
     "iis.txt": "iis.txt",
     "iis-mine.txt": "iis.txt",
     "nginx.txt": "nginx.txt",
-    "sensitive.txt": "backup.txt",
-    "umbraco.txt": "asp.txt",
+    "sensitive.txt": "sensitive.txt",
+    "umbraco.txt": "umbraco.txt",
     "common.txt": "common.txt",
     "combined_directories.txt": "common.txt",
     "direct.txt": "common.txt",

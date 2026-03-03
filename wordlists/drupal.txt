@@ -50,10 +50,6 @@ batch
 blog/2011/04/26/drupal-7-error-in-page-title-module
 bnr_drupal_sp.ashx
 changelog.txt
-ChangeLog.txt
-Changelog.txt
-CHANGELOG.txt
-CHANGELOG.TXT
 cms/sites/all/themes/temaucm/images/banners
 CMSModules/System/Debug/System_DebugAll.aspx
 CMSModules/System/Debug/System_DebugAnalytics.aspx
@@ -143,7 +139,6 @@ Dockerfile
 docs/changelog.txt
 domains/d6.krishna.com/sites/all/modules/ad
 Drupal
-drupal
 drupal-4
 drupal-4.7.2
 drupal-4.7.5

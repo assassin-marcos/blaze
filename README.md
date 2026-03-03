@@ -25,8 +25,8 @@ A next-generation directory bruteforce tool that outsmarts gobuster, ffuf, dirse
 
 ### Intelligence
 - **WAF Detection** — 22+ WAF signatures (Cloudflare, Akamai, Imperva, AWS WAF, Sucuri, ModSecurity, F5 BIG-IP, Barracuda, Wordfence, Fortinet, Citrix, etc.) with auto-stop and confidence scoring
-- **Technology Fingerprinting** — 40+ probe paths, detects PHP, WordPress, Joomla, Drupal, ASP.NET, Java/JSP, Node.js, Python/Django/Flask, Ruby on Rails, Spring, Tomcat, Nginx, Apache, IIS
-- **Smart Wordlist Selection** — Auto-selects wordlists based on detected technology stack
+- **Technology Fingerprinting** — 80+ probe paths, detects PHP, WordPress, Joomla, Drupal, ASP.NET, Java/JSP, Node.js, Python/Django/Flask, Ruby on Rails, Spring, Tomcat, Nginx, Apache, IIS, Magento, TYPO3, Umbraco, Moodle, SharePoint, AEM, Confluence, Jenkins, GitLab, Elasticsearch, SAP, Docker/Kubernetes, GraphQL, Swagger/OpenAPI
+- **Smart Wordlist Selection** — Auto-selects from 36 wordlists based on detected technology stack (37 tech mappings)
 - **Real-Time Tech Detection** — Detects new technologies from scan results as they come in
 
 ### Filtering & Detection
@@ -37,7 +37,7 @@ A next-generation directory bruteforce tool that outsmarts gobuster, ffuf, dirse
 - **Smart Status Filtering** — 200/201/204/301/302/307/308 shown, 404 hidden, 403 hidden unless `--show-forbidden`, 401 shown only if not wildcard, 500 shown (reveals stack traces)
 
 ### Smart Recursion
-- **Context-Aware** — Maps 25+ directory name patterns to appropriate wordlists (e.g., `/api` → api.txt, `/wp-admin` → wordpress.txt, `/backup` → backup.txt)
+- **Context-Aware** — Maps 40+ directory name patterns to appropriate wordlists (e.g., `/api` → api.txt, `/wp-admin` → wordpress.txt, `/backup` → backup.txt, `/umbraco` → umbraco.txt)
 - **Multi-Wordlist Per Directory** — Each recursive level gets context-appropriate wordlists
 - **Suspicious Directory Detection** — Flags directories like `backup`, `old`, `dev`, `staging`
 
@@ -266,28 +266,46 @@ Output:
 
 ## Wordlists
 
-Blaze ships with **799,360+ entries** across 18 technology-specific wordlists:
+Blaze ships with **759,450+ entries** across 36 technology-specific wordlists:
 
 | Wordlist | Entries | Description |
 |----------|---------|-------------|
-| common.txt | 527,189 | Universal paths, files, directories |
-| asp.txt | 113,981 | ASP.NET / IIS paths |
-| php.txt | 88,868 | PHP applications |
-| apache.txt | 14,787 | Apache-specific |
-| api.txt | 13,577 | REST API endpoints |
-| spring.txt | 11,846 | Spring Framework |
-| python_web.txt | 11,153 | Django, Flask, Python |
-| wordpress.txt | 5,646 | WordPress CMS |
-| backup.txt | 4,358 | Backup files & archives |
-| drupal.txt | 2,060 | Drupal CMS |
-| rails.txt | 1,774 | Ruby on Rails |
-| joomla.txt | 1,237 | Joomla CMS |
-| iis.txt | 1,001 | Microsoft IIS |
-| nodejs.txt | 875 | Node.js applications |
-| laravel.txt | 324 | Laravel framework |
-| jsp.txt | 251 | Java Server Pages |
-| tomcat.txt | 230 | Apache Tomcat |
-| nginx.txt | 203 | Nginx-specific |
+| common.txt | 496,426 | Universal paths, files, directories |
+| asp.txt | 106,480 | ASP.NET / IIS / ASP Classic paths |
+| php.txt | 86,271 | PHP applications |
+| apache.txt | 14,362 | Apache HTTP Server |
+| api.txt | 13,232 | REST API endpoints |
+| spring.txt | 11,528 | Spring Framework / Spring Boot |
+| python_web.txt | 11,148 | Django, Flask, FastAPI, Python |
+| wordpress.txt | 5,625 | WordPress CMS |
+| backup.txt | 4,187 | Backup files & archives |
+| drupal.txt | 2,055 | Drupal CMS |
+| joomla.txt | 1,232 | Joomla CMS |
+| nodejs.txt | 515 | Node.js / Express / Next.js |
+| sensitive_files.txt | 471 | Sensitive files (.env, keys, configs) |
+| iis.txt | 443 | Microsoft IIS |
+| rails.txt | 428 | Ruby on Rails |
+| cloud_devops.txt | 385 | AWS, Azure, GCP, cloud paths |
+| sap.txt | 361 | SAP systems |
+| laravel.txt | 321 | Laravel framework |
+| sharepoint.txt | 301 | Microsoft SharePoint |
+| sensitive.txt | 289 | Sensitive directories & paths |
+| moodle.txt | 289 | Moodle LMS |
+| aem.txt | 265 | Adobe Experience Manager |
+| jsp.txt | 249 | Java Server Pages |
+| magento.txt | 248 | Magento eCommerce |
+| docker_kubernetes.txt | 241 | Docker & Kubernetes |
+| confluence.txt | 225 | Atlassian Confluence |
+| tomcat.txt | 223 | Apache Tomcat |
+| elasticsearch.txt | 214 | Elasticsearch / Kibana |
+| devops.txt | 205 | DevOps / CI-CD tools |
+| nginx.txt | 201 | Nginx-specific |
+| jenkins.txt | 200 | Jenkins CI/CD |
+| swagger.txt | 183 | Swagger / OpenAPI / API docs |
+| gitlab.txt | 184 | GitLab |
+| umbraco.txt | 172 | Umbraco CMS |
+| typo3.txt | 158 | TYPO3 CMS |
+| graphql.txt | 140 | GraphQL APIs |
 
 ### Merging Custom Dictionaries
 
@@ -315,7 +333,7 @@ blaze --setup-lists
 
 1. **Initial Probe** — Connect to target, collect headers, cookies, response body
 2. **WAF Detection** — Check for 22+ WAF signatures in headers/body/cookies + trigger paths
-3. **Technology Detection** — Fingerprint server, language, framework, CMS from probe + 40 active paths
+3. **Technology Detection** — Fingerprint server, language, framework, CMS from probe + 80 active paths
 4. **Response Calibration** — Wildcard detection (random paths), soft-404 baseline, wildcard auth detection
 5. **Wordlist Assembly** — Build wordlist from: high-priority paths → user lists → tech-specific → always-run → common
 6. **Main Scan** — Async scan with real-time adaptive filtering, thread adjustment, and progress tracking
