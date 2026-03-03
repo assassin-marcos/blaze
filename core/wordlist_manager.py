@@ -119,12 +119,14 @@ class WordlistManager:
             return path_txt
         return None
 
-    def build_wordlist(self, tech_result: Optional[TechResult] = None) -> List[str]:
+    def build_wordlist(self, tech_result: Optional[TechResult] = None,
+                       extra_wordlists: Optional[List[str]] = None) -> List[str]:
         """
         Build the final wordlist by combining:
         1. High-priority paths (always first)
         2. User-provided custom wordlists
         3. Smart technology-based wordlists (if smart mode)
+        3b. Extra wordlists (from subdomain intelligence, etc.)
         4. Always-run wordlists (from config)
         5. Common wordlist (baseline)
         """
@@ -160,6 +162,13 @@ class WordlistManager:
 
             for wl_file in sorted(tech_wordlists):
                 path = self._resolve_wordlist_path(wl_file)
+                if path:
+                    add_words(self._load_wordlist(path))
+
+        # 3b. Extra wordlists (subdomain intelligence, custom)
+        if extra_wordlists:
+            for wl in extra_wordlists:
+                path = self._resolve_wordlist_path(wl)
                 if path:
                     add_words(self._load_wordlist(path))
 

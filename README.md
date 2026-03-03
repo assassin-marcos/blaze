@@ -22,12 +22,16 @@ A next-generation directory bruteforce tool that outsmarts gobuster, ffuf, dirse
 - **Adaptive Threading** — Auto-adjusts concurrency based on server response times, error rates, CPU cores, and bandwidth estimation
 - **Dynamic Semaphore** — Real-time thread scaling (up and down) without restart
 - **Adaptive Rate Limiting** — Automatically backs off on 429s and server errors
+- **Rate Limit Fingerprinting** — Reads `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers to intelligently pace requests
 
 ### Intelligence
 - **WAF Detection** — 22+ WAF signatures (Cloudflare, Akamai, Imperva, AWS WAF, Sucuri, ModSecurity, F5 BIG-IP, Barracuda, Wordfence, Fortinet, Citrix, etc.) with auto-stop and confidence scoring
 - **Technology Fingerprinting** — 80+ probe paths, detects PHP, WordPress, Joomla, Drupal, ASP.NET, Java/JSP, Node.js, Python/Django/Flask, Ruby on Rails, Spring, Tomcat, Nginx, Apache, IIS, Magento, TYPO3, Umbraco, Moodle, SharePoint, AEM, Confluence, Jenkins, GitLab, Elasticsearch, SAP, Docker/Kubernetes, GraphQL, Swagger/OpenAPI
 - **Smart Wordlist Selection** — Auto-selects from 36 wordlists based on detected technology stack (37 tech mappings)
 - **Real-Time Tech Detection** — Detects new technologies from scan results as they come in
+- **Subdomain-Aware Scanning** — Automatically selects additional wordlists based on subdomain patterns (e.g., `api.target.com` → api.txt + swagger.txt)
+- **Response Header Leak Detection** — Flags leaked internal IPs, debug tokens, server versions, backend names, and 37+ sensitive headers with severity scoring
+- **Custom Signature Packs** — Drop `.json` files in `signatures/` to extend WAF, technology, and wordlist detection
 
 ### Filtering & Detection
 - **Wildcard Detection** — Calibrates against random paths to detect wildcard responses
@@ -44,8 +48,9 @@ A next-generation directory bruteforce tool that outsmarts gobuster, ffuf, dirse
 ### Discovery
 - **HTML Link Crawling** — Extracts `href`, `src`, `action` attributes from discovered HTML pages and queues them for scanning
 - **JavaScript Endpoint Extraction** — 12 regex patterns with scoring system, extracts fetch(), axios, route definitions from JS files
-- **Smart Extension Probing** — Auto-probes `.bak`, `.old`, `.zip`, `.tar.gz`, `.sql` variants of discovered files
+- **Smart Extension Probing** — Auto-probes `.bak`, `.old`, `.zip`, `.tar.gz`, `.sql` variants of discovered files, plus 25+ filename permutation patterns (`.config.php.swp`, `config_backup.php`, `config.bak.php`, `#config.php#`, etc.)
 - **Directory Archive Probing** — Checks `backup.zip`, `backup.tar.gz`, etc. for discovered directories
+- **Scope-Aware Crawling** — Discovers related subdomains from HTML links while staying within the target's base domain
 - **Parameter Fuzzing** — 101 built-in parameter names, 9 test values, reflection detection, 30 interesting-response patterns
 
 ### Advanced Modes
@@ -67,32 +72,28 @@ A next-generation directory bruteforce tool that outsmarts gobuster, ffuf, dirse
 ### Quick Install (pip)
 
 ```bash
-pip install .
+pip3 install . --break-system-packages
 ```
 
 Or with fast extras (uvloop):
 
 ```bash
-pip install ".[fast]"
+pip3 install ".[fast]" --break-system-packages
 ```
 
-### Installer Script
+### Installer Script (Cross-Platform)
 
-**Linux / macOS:**
+Works on Linux, macOS, Windows (Git Bash / MSYS2 / WSL):
+
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-**Windows:**
-```
-install.bat
-```
-
 ### Standalone Binary
 
 ```bash
-python build.py
+python3 build.py
 ```
 
 Creates a single-file executable in `dist/` — no Python required on the target machine.
@@ -102,7 +103,7 @@ Creates a single-file executable in `dist/` — no Python required on the target
 ```bash
 git clone https://github.com/assassin-marcos/blaze.git
 cd blaze
-pip install -e ".[all]"
+pip3 install -e ".[all]" --break-system-packages
 ```
 
 ---
@@ -331,16 +332,18 @@ blaze --setup-lists
 
 ### Scan Flow
 
-1. **Initial Probe** — Connect to target, collect headers, cookies, response body
-2. **WAF Detection** — Check for 22+ WAF signatures in headers/body/cookies + trigger paths
-3. **Technology Detection** — Fingerprint server, language, framework, CMS from probe + 80 active paths
-4. **Response Calibration** — Wildcard detection (random paths), soft-404 baseline, wildcard auth detection
-5. **Wordlist Assembly** — Build wordlist from: high-priority paths → user lists → tech-specific → always-run → common
-6. **Main Scan** — Async scan with real-time adaptive filtering, thread adjustment, and progress tracking
-7. **HTML Crawling** — Extract and scan links from discovered HTML pages
-8. **JS Extraction** — Parse JavaScript files for hidden API endpoints
-9. **Smart Recursion** — Context-aware recursive scanning with per-directory wordlists
-10. **Results** — Summary with grouped results, statistics, and adaptive filter report
+1. **Custom Signatures** — Load user signature packs from `signatures/` directory
+2. **Initial Probe** — Connect to target, collect headers, cookies, response body
+3. **WAF Detection** — Check for 22+ WAF signatures in headers/body/cookies + trigger paths
+4. **Technology Detection** — Fingerprint server, language, framework, CMS from probe + 80 active paths
+5. **Subdomain Intelligence** — Detect subdomain patterns and add context-appropriate wordlists
+6. **Response Calibration** — Wildcard detection (random paths), soft-404 baseline, wildcard auth detection
+7. **Wordlist Assembly** — Build wordlist from: high-priority → user lists → tech-specific → subdomain → always-run → common
+8. **Main Scan** — Async scan with real-time adaptive filtering, header leak detection, rate limit fingerprinting, thread adjustment
+9. **HTML Crawling** — Scope-aware link extraction from discovered HTML pages, subdomain discovery
+10. **JS Extraction** — Parse JavaScript files for hidden API endpoints
+11. **Smart Recursion** — Context-aware recursive scanning with per-directory wordlists
+12. **Results** — Summary with grouped results, header leaks, rate limit info, and adaptive filter report
 
 ### Adaptive Threading
 
@@ -364,6 +367,39 @@ This catches:
 - Custom error pages that return HTTP 200
 - Authentication gateways returning identical 401s
 - Any repetitive response pattern not caught by initial calibration
+
+### Custom Signature Packs
+
+Extend Blaze's detection by dropping `.json` files in the `signatures/` directory:
+
+```json
+{
+    "name": "My Custom Signatures",
+    "version": "1.0",
+    "waf_signatures": {
+        "header_patterns": {
+            "X-Custom-WAF": ["CustomWAF", 0.9]
+        },
+        "body_patterns": {
+            "Access Denied by CustomWAF": ["CustomWAF", 0.85]
+        }
+    },
+    "tech_signatures": {
+        "body_patterns": {
+            "/custom-cms/": ["CustomCMS", 0.8]
+        },
+        "cookie_patterns": {
+            "custom_session": ["CustomCMS", 0.9]
+        },
+        "probe_paths": [
+            ["custom-admin/", "CustomCMS"]
+        ]
+    },
+    "wordlist_map": {
+        "CustomCMS": "common.txt"
+    }
+}
+```
 
 ---
 

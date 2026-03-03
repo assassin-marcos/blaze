@@ -1,10 +1,12 @@
 """
-Blaze Core Engine v2.0 - Full-featured async directory scanner.
+Blaze Core Engine v2.1 - Full-featured async directory scanner.
 
 Integrates: smart status filtering, response diffing, WAF detection,
 tech fingerprinting, smart recursion with context-aware multi-wordlist,
 smart extension probing, JS endpoint extraction, resume support,
-real-time adaptation, and headless browser challenge bypass.
+real-time adaptation, headless browser challenge bypass,
+header leak detection, rate limit fingerprinting, subdomain-aware
+wordlist selection, and custom signature packs.
 """
 
 import asyncio
@@ -29,6 +31,8 @@ from .smart_recursion import SmartRecursion
 from .smart_extensions import SmartExtensions
 from .js_extractor import JSExtractor
 from .resume_manager import ResumeManager, ScanState
+from .header_analyzer import HeaderAnalyzer
+from .signature_loader import SignatureLoader
 
 
 USER_AGENTS = [
@@ -318,7 +322,12 @@ class RealtimeAdaptiveFilter:
 
 
 class AdaptiveRateLimiter:
-    """Dynamically adjusts request rate based on server responses."""
+    """Dynamically adjusts request rate based on server responses.
+
+    Includes rate limit fingerprinting: reads Retry-After,
+    X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+    headers to intelligently pace requests.
+    """
 
     def __init__(self, initial_delay: float = 0):
         self.delay = initial_delay
@@ -328,25 +337,102 @@ class AdaptiveRateLimiter:
         self.backoff_factor = 1.0
         self._lock = asyncio.Lock()
 
+        # Rate limit fingerprinting state
+        self.rate_limit_max: Optional[int] = None
+        self.rate_limit_remaining: Optional[int] = None
+        self.rate_limit_reset: Optional[float] = None
+        self.retry_after: Optional[float] = None
+        self._rate_limit_detected = False
+
     async def wait(self):
-        if self.delay <= 0 and self.backoff_factor <= 1.0:
+        if self.delay <= 0 and self.backoff_factor <= 1.0 and not self._rate_limit_detected:
             return
         async with self._lock:
             now = time.monotonic()
             elapsed = now - self.last_request
+
+            # If rate limit headers give us a remaining count near zero, pace ourselves
+            if self._rate_limit_detected and self.rate_limit_remaining is not None:
+                if self.rate_limit_remaining <= 1 and self.rate_limit_reset:
+                    wait_secs = max(0, self.rate_limit_reset - time.time())
+                    if wait_secs > 0 and wait_secs < 120:
+                        await asyncio.sleep(min(wait_secs, 30))
+                        self.last_request = time.monotonic()
+                        return
+
             effective_delay = self.delay * self.backoff_factor
             if elapsed < effective_delay:
                 await asyncio.sleep(effective_delay - elapsed)
             self.last_request = time.monotonic()
+
+    def fingerprint_rate_limit(self, headers: dict) -> Optional[str]:
+        """Extract rate limiting info from response headers.
+        Returns a description string if rate limit was detected, else None."""
+        info_parts = []
+
+        # Retry-After (from 429 or 503)
+        retry_after = headers.get("Retry-After") or headers.get("retry-after")
+        if retry_after:
+            try:
+                self.retry_after = float(retry_after)
+                info_parts.append(f"Retry-After: {self.retry_after}s")
+            except ValueError:
+                pass
+
+        # Standard rate limit headers (various casings)
+        for prefix in ("X-RateLimit", "X-Rate-Limit", "RateLimit", "X-Ratelimit"):
+            limit_val = headers.get(f"{prefix}-Limit") or headers.get(f"{prefix}-limit")
+            remaining_val = headers.get(f"{prefix}-Remaining") or headers.get(f"{prefix}-remaining")
+            reset_val = headers.get(f"{prefix}-Reset") or headers.get(f"{prefix}-reset")
+
+            if limit_val:
+                try:
+                    self.rate_limit_max = int(limit_val)
+                    info_parts.append(f"Limit: {self.rate_limit_max}")
+                except ValueError:
+                    pass
+
+            if remaining_val:
+                try:
+                    self.rate_limit_remaining = int(remaining_val)
+                    info_parts.append(f"Remaining: {self.rate_limit_remaining}")
+                except ValueError:
+                    pass
+
+            if reset_val:
+                try:
+                    reset_num = float(reset_val)
+                    # Could be epoch timestamp or seconds-from-now
+                    if reset_num > 1e9:
+                        self.rate_limit_reset = reset_num
+                    else:
+                        self.rate_limit_reset = time.time() + reset_num
+                    info_parts.append(f"Reset: {reset_num}")
+                except ValueError:
+                    pass
+
+        if info_parts:
+            self._rate_limit_detected = True
+            # Auto-pace if we know the limit
+            if self.rate_limit_max and self.rate_limit_max > 0 and self.delay == 0:
+                self.delay = max(0.01, 1.0 / self.rate_limit_max)
+            return " | ".join(info_parts)
+
+        return None
 
     def on_success(self):
         self.consecutive_errors = 0
         self.consecutive_429s = 0
         self.backoff_factor = max(self.backoff_factor * 0.95, 1.0)
 
-    def on_rate_limit(self):
+    def on_rate_limit(self, headers: dict = None):
         self.consecutive_429s += 1
-        self.backoff_factor = min(self.backoff_factor * 2.0, 30.0)
+        if headers:
+            self.fingerprint_rate_limit(headers)
+        if self.retry_after and self.retry_after < 120:
+            self.backoff_factor = max(self.backoff_factor, self.retry_after / max(self.delay, 0.1))
+        else:
+            self.backoff_factor = min(self.backoff_factor * 2.0, 30.0)
         if self.delay == 0:
             self.delay = 0.1
 
@@ -358,6 +444,18 @@ class AdaptiveRateLimiter:
     @property
     def is_heavily_throttled(self) -> bool:
         return self.consecutive_429s > 10 or self.backoff_factor > 15.0
+
+    @property
+    def rate_limit_info(self) -> Optional[str]:
+        """Summary of detected rate limiting for reporting."""
+        if not self._rate_limit_detected:
+            return None
+        parts = []
+        if self.rate_limit_max:
+            parts.append(f"max={self.rate_limit_max}/window")
+        if self.consecutive_429s > 0:
+            parts.append(f"429s_seen={self.consecutive_429s}")
+        return ", ".join(parts) if parts else "detected"
 
 
 class BlazeEngine:
@@ -410,6 +508,10 @@ class BlazeEngine:
         self.js_extractor = JSExtractor()
         self.resume_manager = ResumeManager(self.target)
 
+        # v2.1 modules — header leak detection, custom signatures
+        self.header_analyzer = HeaderAnalyzer()
+        self.signature_loader = SignatureLoader()
+
         # State
         self.session: Optional[aiohttp.ClientSession] = None
         self.results: List[ScanResult] = []
@@ -422,6 +524,8 @@ class BlazeEngine:
 
         # Crawled paths from HTML responses
         self._crawled_paths: Set[str] = set()
+        # Discovered subdomains (scope-aware crawling)
+        self._discovered_subdomains: Set[str] = set()
 
         # Real-time adaptive filter (the killer feature)
         self.adaptive_filter = RealtimeAdaptiveFilter(
@@ -859,10 +963,32 @@ class BlazeEngine:
                             self.reporter.error("Too many WAF blocks. Stopping scan.")
                         return
 
+                    # ═══ Rate limit fingerprinting (runs on every response) ═══
+                    rl_info = self.rate_limiter.fingerprint_rate_limit(headers)
+                    if rl_info and not hasattr(self, '_rl_notified'):
+                        self._rl_notified = True
+                        self.reporter.info(f"Rate limit detected: {rl_info}")
+
+                    # Handle 429 Too Many Requests
+                    if resp.status == 429:
+                        self.rate_limiter.on_rate_limit(headers)
+                        self.thread_manager.record(elapsed, is_error=True)
+                        return
+
                     # ═══ VALID RESULT ═══
                     self.stats.successful += 1
                     self.results.append(result)
                     self.reporter.found(result)
+
+                    # ── Header leak analysis ──
+                    if self.smart_mode:
+                        new_leaks = self.header_analyzer.analyze(headers)
+                        for leak in new_leaks:
+                            if leak.severity == "high":
+                                self.reporter.warning(
+                                    f"Header leak [{leak.severity}]: "
+                                    f"{leak.header}: {leak.value} — {leak.description}"
+                                )
 
                     # ── Crawl links from HTML responses ──
                     if (resp.status == 200
@@ -890,8 +1016,18 @@ class BlazeEngine:
                 self.thread_manager.record(self.timeout * 0.5, is_error=True)
 
     def _crawl_links(self, body: str, source_path: str):
-        """Extract links from HTML responses and queue them for scanning."""
-        # Extract href and src attributes
+        """Extract links from HTML responses and queue them for scanning.
+
+        Scope-aware: stays within the target's base domain (e.g., if target is
+        app.example.com, also accepts links to api.example.com paths but only
+        scans paths on the original target host).
+        """
+        target_parsed = urlparse(self.target)
+        target_host = target_parsed.hostname or ""
+        # Extract base domain for scope checking (e.g., "example.com" from "app.example.com")
+        host_parts = target_host.split(".")
+        base_domain = ".".join(host_parts[-2:]) if len(host_parts) >= 2 else target_host
+
         link_patterns = [
             r'href=["\']([^"\'#?]+)',
             r'src=["\']([^"\'#?]+)',
@@ -900,20 +1036,32 @@ class BlazeEngine:
         for pattern in link_patterns:
             for match in re.finditer(pattern, body, re.IGNORECASE):
                 link = match.group(1).strip()
-                # Skip external links, mailto, javascript, data URIs
+                # Skip non-HTTP schemes
                 if any(link.startswith(p) for p in (
-                    "http://", "https://", "//", "mailto:", "javascript:",
-                    "data:", "tel:", "ftp:", "#",
+                    "mailto:", "javascript:", "data:", "tel:", "ftp:", "#",
                 )):
-                    # Check if it's on the same host
-                    if link.startswith(("http://", "https://")):
-                        parsed = urlparse(link)
-                        target_parsed = urlparse(self.target)
-                        if parsed.hostname != target_parsed.hostname:
-                            continue
+                    continue
+
+                # Handle absolute URLs
+                if link.startswith(("http://", "https://", "//")):
+                    if link.startswith("//"):
+                        link = f"{target_parsed.scheme}:{link}"
+                    parsed = urlparse(link)
+                    link_host = parsed.hostname or ""
+                    # Same host → use the path directly
+                    if link_host == target_host:
                         link = parsed.path
+                    # Same base domain (scope-aware) → log the subdomain but only scan paths on target
+                    elif link_host.endswith(base_domain):
+                        if link_host not in self._discovered_subdomains:
+                            self._discovered_subdomains.add(link_host)
+                            self.reporter.info(
+                                f"Related subdomain discovered: {link_host} (from /{source_path})"
+                            )
+                        continue  # don't scan other subdomains' paths on our target
                     else:
-                        continue
+                        continue  # external domain, skip
+
                 # Normalize
                 link = link.lstrip("/")
                 if link and link not in self.scanned_paths and len(link) < 256:
@@ -1109,6 +1257,14 @@ class BlazeEngine:
         self.session = await self._create_session()
 
         try:
+            # Load custom signature packs
+            sig_count = self.signature_loader.load_all()
+            if sig_count > 0:
+                self.reporter.info(
+                    f"Loaded {sig_count} custom signature pack(s): "
+                    f"{', '.join(self.signature_loader.get_pack_names())}"
+                )
+
             # Resume check
             if self.config.get("resume", False):
                 self._load_resume_state()
@@ -1154,9 +1310,18 @@ class BlazeEngine:
             # Phase 4: Response calibration (wildcard + soft-404 + wildcard auth)
             await self.calibrate_detection()
 
+            # Phase 4b: Subdomain-aware wordlist hints
+            subdomain_lists = HeaderAnalyzer.get_subdomain_wordlists(self.target)
+            if subdomain_lists:
+                self.reporter.info(
+                    f"Subdomain intelligence: adding {', '.join(subdomain_lists)}"
+                )
+
             # Phase 5: Wordlist assembly
             self.reporter.phase("Wordlist Assembly")
-            wordlist = self.wordlist_manager.build_wordlist(tech_result)
+            wordlist = self.wordlist_manager.build_wordlist(
+                tech_result, extra_wordlists=subdomain_lists
+            )
             self.reporter.info(f"Total words to scan: {len(wordlist):,}")
 
             # Phase 6: Main scan
@@ -1192,6 +1357,21 @@ class BlazeEngine:
                 "total_filtered": self.adaptive_filter.total_filtered,
                 "thread_changes": self.thread_manager.thread_changes,
             }
+
+            # Header leak summary
+            leak_summary = self.header_analyzer.get_summary()
+            if any(leak_summary.values()):
+                adaptive_info["header_leaks"] = leak_summary
+                self.reporter.info(
+                    f"Header leaks found: {leak_summary['high']} high, "
+                    f"{leak_summary['medium']} medium, {leak_summary['low']} low"
+                )
+
+            # Rate limit info
+            rl_info = self.rate_limiter.rate_limit_info
+            if rl_info:
+                adaptive_info["rate_limit"] = rl_info
+
             self.reporter.summary(self.stats, self.results, adaptive_info)
 
             # Export results

@@ -2,6 +2,10 @@
 Blaze Smart Extensions - Automatically probe backup/archive extensions
 on discovered files, and detect suspicious directories that warrant
 additional file-type fuzzing.
+
+v2.1: Enhanced permutation patterns — for a file like "config.php", also
+tries: .config.php.swp, config.php.1, config_backup.php, config.bak.php,
+config.php.bak, Copy of config.php, etc.
 """
 
 import re
@@ -47,6 +51,42 @@ DIR_ARCHIVE_PROBES = [
     "{name}.7z", "{name}.tar", "{name}.sql",
     "{name}.sql.gz", "{name}.sql.bz2",
     "{name}.sql.zip", "{name}.dump",
+]
+
+# ──────── Advanced Permutation Templates ────────
+# For file "dir/config.php":
+#   base = "config", ext = ".php", full = "config.php"
+# These patterns generate additional probes beyond simple suffix appending.
+FILE_PERMUTATION_TEMPLATES = [
+    # Hidden file variants (dot-prefix)
+    ".{full}",           # .config.php
+    ".{full}.swp",       # .config.php.swp (vim swap)
+    ".{full}.swo",       # .config.php.swo
+    # Numbered backups
+    "{full}.1",          # config.php.1
+    "{full}.2",          # config.php.2
+    "{full}.0",          # config.php.0
+    # Common rename patterns
+    "{base}_backup{ext}",  # config_backup.php
+    "{base}_old{ext}",     # config_old.php
+    "{base}_bak{ext}",     # config_bak.php
+    "{base}_orig{ext}",    # config_orig.php
+    "{base}_copy{ext}",    # config_copy.php
+    "{base}_dev{ext}",     # config_dev.php
+    "{base}_test{ext}",    # config_test.php
+    "{base}_new{ext}",     # config_new.php
+    "{base}.bak{ext}",     # config.bak.php
+    "{base}.old{ext}",     # config.old.php
+    # Tilde/temp patterns
+    "~{full}",             # ~config.php
+    "{full}.save",         # config.php.save
+    "#{full}#",            # #config.php# (emacs auto-save)
+    # Copy of patterns
+    "Copy of {full}",      # Copy of config.php
+    "{full} (copy)",       # config.php (copy)
+    # Date-stamped backups
+    "{base}-backup{ext}",  # config-backup.php
+    "{full}.bkp",          # config.php.bkp
 ]
 
 # ──────── Suspicious Path Patterns ────────
@@ -96,7 +136,7 @@ class SmartExtensions:
     def get_file_probes(self, found_path: str, status_code: int) -> List[ExtensionProbe]:
         """
         Given a found file path, generate additional paths to probe
-        with backup/archive extensions.
+        with backup/archive extensions and filename permutations.
 
         Only probes for files that returned 200 or 403 (exists but maybe protected).
         """
@@ -115,7 +155,7 @@ class SmartExtensions:
         if not categories_matched:
             categories_matched.add("source")
 
-        # Generate probes for each category
+        # Generate suffix-based probes for each category
         for category in categories_matched:
             extensions = CATEGORY_EXTENSIONS.get(category, BACKUP_EXTENSIONS)
             for ext in extensions:
@@ -130,6 +170,28 @@ class SmartExtensions:
                         category=category,
                         priority=priority,
                     ))
+
+        # Generate permutation-based probes (for files with extensions)
+        filename = found_path.split("/")[-1]
+        dir_prefix = found_path[: len(found_path) - len(filename)]
+        if "." in filename:
+            base, ext = filename.rsplit(".", 1)
+            ext = "." + ext
+            for template in FILE_PERMUTATION_TEMPLATES:
+                try:
+                    permuted = template.format(full=filename, base=base, ext=ext)
+                    probe_path = dir_prefix + permuted
+                    if probe_path not in self._probed:
+                        self._probed.add(probe_path)
+                        probes.append(ExtensionProbe(
+                            original_path=found_path,
+                            probe_path=probe_path,
+                            extension="(permutation)",
+                            category="backup",
+                            priority=2,
+                        ))
+                except (KeyError, IndexError):
+                    continue
 
         # For files with extensions, also try without extension (source disclosure)
         if "." in found_path:
