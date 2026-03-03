@@ -565,6 +565,9 @@ class TechDetector:
             for key, exts in TECH_EXTENSIONS.items():
                 if key.lower() in tech_name.lower() or tech_name.lower() in key.lower():
                     extensions.update(exts)
+        # Always add common sensitive extensions when any tech is detected
+        if extensions:
+            extensions.update([".bak", ".old", ".txt", ".conf", ".log", ".sql", ".xml", ".json"])
         return sorted(extensions)
 
     def get_wordlists(self, tech_result: TechResult) -> List[str]:

@@ -676,24 +676,27 @@ class BlazeEngine:
                     status_counts[status] = status_counts.get(status, 0) + 1
                     valid_probes.append(pr)
 
-        # If >60% of successful probes return 403, it's likely a WAF blanket block
-        # — discard all 403-only detections
+        # Detect blanket responses: if any single status code accounts for >60%
+        # of all probe hits, the server is returning the same thing for everything
+        # (WAF blocking with 403, catch-all redirect with 301, etc.)
         total_hits = len(valid_probes)
-        blanket_403 = (
-            total_hits > 5
-            and status_counts.get(403, 0) / total_hits > 0.6
-        )
+        blanket_status = None
+        if total_hits > 5:
+            for status, count in status_counts.items():
+                if count / total_hits > 0.6 and status != 200:
+                    blanket_status = status
+                    break
 
         for pr in valid_probes:
             status = pr[3]
-            if blanket_403 and status == 403:
-                continue  # Skip blanket 403 false positives
+            if blanket_status and status == blanket_status:
+                continue  # Skip blanket false positives
             result.add_technology(pr[1], pr[2])
 
-        if blanket_403:
+        if blanket_status:
             self.reporter.warning(
-                "Most probe paths returned 403 (likely WAF blanket block). "
-                "Probe-based tech detection skipped — using header/body signatures only."
+                f"Most probe paths returned {blanket_status} (blanket response). "
+                f"Probe-based tech detection skipped — using header/body signatures only."
             )
 
         if result.technologies:
@@ -853,7 +856,11 @@ class BlazeEngine:
                 continue
 
             paths_to_scan = [word]
-            if self.extensions and "." not in word:
+            # Only append extensions to bare names (no extension, not a directory path)
+            # e.g. "admin" -> "admin.php", but NOT "config.php" or "admin/"
+            basename = word.rstrip("/").split("/")[-1]
+            is_bare = "." not in basename and not word.endswith("/")
+            if self.extensions and is_bare:
                 for ext in self.extensions:
                     ext = ext.lstrip(".")
                     paths_to_scan.append(f"{word}.{ext}")
